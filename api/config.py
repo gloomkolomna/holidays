@@ -59,7 +59,7 @@ LOG_RETENTION_DAYS = _env_int("LOG_RETENTION_DAYS", 30)
 # ── Загрузки (фото отчётов) ──
 UPLOADS_DIR = os.getenv("UPLOADS_DIR", os.path.join(API_DIR, "uploads"))
 os.makedirs(UPLOADS_DIR, exist_ok=True)
-UPLOAD_MAX_BYTES = _env_int("UPLOAD_MAX_BYTES", 8 * 1024 * 1024)
+UPLOAD_MAX_BYTES = _env_int("UPLOAD_MAX_BYTES", 20 * 1024 * 1024)
 UPLOAD_AUDIO_MAX_BYTES = _env_int("UPLOAD_AUDIO_MAX_BYTES", 20 * 1024 * 1024)
 
 # ── S3 / Яндекс Object Storage (фото отчётов) ──

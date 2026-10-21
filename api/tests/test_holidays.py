@@ -413,6 +413,25 @@ def test_animation_rejects_non_image(admin_client, uploads_tmp):
     assert resp.status_code == 400
 
 
+def test_card_image_upload_size_limit_20mb(admin_client, uploads_tmp):
+    import config
+
+    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    cat_id = _create_category(admin_client, hid)
+    slot = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["cards"][0]
+    card = admin_client.put(f"/api/admin/holidays/{hid}/cards/{slot['id']}", json={"title": "Карточка"}).json()
+
+    assert config.UPLOAD_MAX_BYTES == 20 * 1024 * 1024
+
+    too_big = b"x" * (config.UPLOAD_MAX_BYTES + 1)
+    resp = admin_client.post(
+        f"/api/admin/holidays/{hid}/cards/{card['id']}/image",
+        files={"file": ("big.png", too_big, "image/png")},
+    )
+    assert resp.status_code == 400
+    assert "макс. 20 МБ" in resp.json()["detail"]
+
+
 def test_animation_size_validation(admin_client):
     hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
     payload = _multi_day_holiday_payload()
