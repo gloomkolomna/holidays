@@ -68,6 +68,34 @@ def test_create_holiday_happy_path(admin_client):
     assert data["shop_enabled"] is True
 
 
+def test_animation_count_and_opacity_fields(admin_client):
+    payload = _future_holiday_payload()
+    payload["animation_count"] = 7
+    payload["animation_opacity"] = 60
+    created = admin_client.post("/api/admin/holidays", json=payload).json()
+    assert created["animation_count"] == 7
+    assert created["animation_opacity"] == 60
+
+    default = admin_client.post("/api/admin/holidays", json=_future_holiday_payload("По умолчанию")).json()
+    assert default["animation_count"] == 14
+    assert default["animation_opacity"] == 100
+
+    updated = admin_client.put(
+        f"/api/admin/holidays/{created['id']}",
+        json={**_future_holiday_payload(), "animation_count": 3, "animation_opacity": 25},
+    ).json()
+    assert updated["animation_count"] == 3
+    assert updated["animation_opacity"] == 25
+
+
+def test_animation_count_and_opacity_validation(admin_client):
+    for field, bad in (("animation_count", 0), ("animation_count", 41), ("animation_opacity", 9), ("animation_opacity", 101)):
+        payload = _future_holiday_payload(f"Плохой {field} {bad}")
+        payload[field] = bad
+        resp = admin_client.post("/api/admin/holidays", json=payload)
+        assert resp.status_code == 400, (field, bad)
+
+
 def test_create_holiday_forbidden_for_player(player_client):
     resp = player_client.post("/api/admin/holidays", json=_future_holiday_payload())
     assert resp.status_code == 403
@@ -75,9 +103,33 @@ def test_create_holiday_forbidden_for_player(player_client):
 
 def test_create_holiday_bad_dates(admin_client):
     payload = _future_holiday_payload()
-    payload["ends_at"] = payload["starts_at"]
+    start = datetime.datetime.fromisoformat(payload["starts_at"])
+    payload["ends_at"] = (start - datetime.timedelta(days=1)).isoformat()
     resp = admin_client.post("/api/admin/holidays", json=payload)
     assert resp.status_code == 400
+
+
+def test_holiday_times_normalized_to_midnight_msk(admin_client):
+    payload = _future_holiday_payload()
+    payload["starts_at"] = payload["starts_at"].split("T")[0] + "T15:30"
+    payload["ends_at"] = payload["ends_at"].split("T")[0] + "T09:05"
+    created = admin_client.post("/api/admin/holidays", json=payload).json()
+    assert created["starts_at"].endswith("T00:00:00")
+    assert created["ends_at"].endswith("T23:59:59")
+    assert created["starts_at"][:10] == payload["starts_at"][:10]
+    assert created["ends_at"][:10] == payload["ends_at"][:10]
+
+    updated = admin_client.put(f"/api/admin/holidays/{created['id']}", json=payload).json()
+    assert updated["starts_at"].endswith("T00:00:00")
+    assert updated["ends_at"].endswith("T23:59:59")
+
+
+def test_one_day_holiday_allowed(admin_client):
+    payload = _future_holiday_payload()
+    payload["ends_at"] = payload["starts_at"]
+    resp = admin_client.post("/api/admin/holidays", json=payload)
+    assert resp.status_code == 200
+    assert resp.json()["days"] == [payload["starts_at"][:10]]
 
 
 def test_active_holiday_endpoint(admin_client):

@@ -45,6 +45,8 @@ export interface Holiday {
   animation_preset: string | null;
   animation_url: string | null;
   animation_size: number;
+  animation_count: number;
+  animation_opacity: number;
   audio_url: string | null;
   trophy_image_url: string | null;
   shop_enabled: boolean;
@@ -67,6 +69,8 @@ export interface HolidayInput {
   palette?: string | null;
   animation_preset?: string | null;
   animation_size?: number;
+  animation_count?: number;
+  animation_opacity?: number;
   shop_enabled: boolean;
 }
 
@@ -96,6 +100,7 @@ export interface CollectionCategory {
   id: number;
   title: string;
   norm_crosses: number;
+  complete: boolean;
   cards: CollectionEntry[];
 }
 
@@ -144,6 +149,7 @@ export interface ShopHoliday {
 }
 
 export interface Shop {
+  open: boolean;
   holidays: ShopHoliday[];
   has_active_task: boolean;
   penalty_crosses: number;
@@ -152,6 +158,8 @@ export interface Shop {
 export interface Trophy {
   holiday_id: number;
   title: string;
+  category_id: number;
+  category_title: string;
   crystals: number;
   trophy_image_url: string | null;
   awarded_at: string;

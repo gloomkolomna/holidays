@@ -66,6 +66,7 @@ class CollectionCategoryOut(BaseModel):
     id: int
     title: str
     norm_crosses: int
+    complete: bool
     cards: list[CollectionCardOut]
 
 
@@ -274,7 +275,13 @@ def report_task(
     if already is None:
         from services.rewards import ensure_collection_reward
 
-        ensure_collection_reward(db, user.vk_id, task.holiday_id)
+        category_id = (
+            db.query(HolidayCard.category_id)
+            .filter(HolidayCard.id == task.card_id)
+            .scalar()
+        )
+        if category_id is not None:
+            ensure_collection_reward(db, user.vk_id, category_id)
 
     return {
         "ok": True,
@@ -315,11 +322,14 @@ def get_collection(
         entries = [_entry(c) for c in cat.cards]
         total += len(entries)
         collected_count += sum(1 for e in entries if e.collected)
+        filled_ids = {c.id for c in cat.cards if c.title.strip()}
+        complete = bool(filled_ids) and filled_ids.issubset(owned.keys())
         categories_out.append(
             CollectionCategoryOut(
                 id=cat.id,
                 title=cat.title,
                 norm_crosses=cat.norm_crosses,
+                complete=complete,
                 cards=entries,
             )
         )

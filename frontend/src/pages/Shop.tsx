@@ -77,7 +77,13 @@ export default function ShopPage() {
         </div>
       )}
 
-      {(shop?.holidays.length ?? 0) === 0 ? (
+      {shop && !shop.open ? (
+        <div className="fm-card" style={{ marginTop: 12, textAlign: 'center' }}>
+          <div style={{ fontSize: 28 }}>🔒</div>
+          Магазин выкупа открыт по выходным — суббота и воскресенье
+          (время московское). Загляните в ближайшую субботу!
+        </div>
+      ) : (shop?.holidays.length ?? 0) === 0 ? (
         <div className="fm-card" style={{ marginTop: 12, textAlign: 'center' }}>
           <div style={{ fontSize: 28 }}>🕳</div>
           Завершённых праздников с карточками для выкупа пока нет.

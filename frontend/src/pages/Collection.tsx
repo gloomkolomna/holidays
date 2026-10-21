@@ -110,6 +110,8 @@ export default function CollectionPage() {
           preset={selectedHoliday?.animation_url ? undefined : selectedHoliday?.animation_preset ?? undefined}
           imageUrl={selectedHoliday?.animation_url ? mediaUrl(selectedHoliday.animation_url) : null}
           size={selectedHoliday?.animation_size ?? 50}
+          count={selectedHoliday?.animation_count}
+          opacity={selectedHoliday?.animation_opacity}
         />
       )}
       {selectedHoliday?.audio_url && user?.music_enabled !== false && (
@@ -164,14 +166,10 @@ export default function CollectionPage() {
               <div className="fm-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                   <h3 style={{ margin: 0 }}>{collection.title}</h3>
-                  {collection.collected === collection.total && collection.trophy_image_url ? (
-                    <img src={mediaUrl(collection.trophy_image_url)} alt="Кубок" style={{ height: 56, borderRadius: 6 }} />
-                  ) : (
-                    <span className="fm-chip">
-                      {collection.collected === collection.total ? '🏆' : '🃏'}{' '}
-                      {collection.collected}/{collection.total}
-                    </span>
-                  )}
+                  <span className="fm-chip">
+                    {collection.collected === collection.total ? '🏆' : '🃏'}{' '}
+                    {collection.collected}/{collection.total}
+                  </span>
                 </div>
                 <div className="fm-progress" style={{ marginTop: 10 }}>
                   <div
@@ -188,7 +186,7 @@ export default function CollectionPage() {
                     className={`fm-menu-tab${cat.id === selectedCat ? ' active' : ''}`}
                     onClick={() => setSelectedCat(cat.id)}
                   >
-                    {cat.title}
+                    {cat.complete ? '🏆 ' : ''}{cat.title}
                   </button>
                 ))}
               </div>
@@ -199,12 +197,16 @@ export default function CollectionPage() {
                   const done = cat.cards.filter((c) => c.collected).length;
                   return (
                     <div key={cat.id} className="fm-card" style={{ marginTop: 12 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                         <h3 style={{ margin: 0 }}>{cat.title}</h3>
-                        <span className="fm-chip">
-                          {done === cat.cards.length && cat.cards.length > 0 ? '🏆' : '🃏'}{' '}
-                          {done}/{cat.cards.length}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {cat.complete && collection.trophy_image_url && (
+                            <img src={mediaUrl(collection.trophy_image_url)} alt="Кубок" style={{ height: 44, borderRadius: 6 }} />
+                          )}
+                          <span className="fm-chip">
+                            {cat.complete ? '🏆' : '🃏'} {done}/{cat.cards.length}
+                          </span>
+                        </div>
                       </div>
                       <div className="fm-grid" style={{ marginTop: 12 }}>
                         {cat.cards.map((entry) => (

@@ -57,6 +57,8 @@ class HolidayOut(BaseModel):
     animation_preset: str | None
     animation_url: str | None
     animation_size: int
+    animation_count: int
+    animation_opacity: int
     audio_url: str | None
     trophy_image_url: str | None
     shop_enabled: bool
@@ -97,6 +99,8 @@ class HolidayIn(BaseModel):
     palette: str | None = None
     animation_preset: str | None = None
     animation_size: int = 50
+    animation_count: int = 14
+    animation_opacity: int = 100
     shop_enabled: bool = True
 
 
@@ -145,6 +149,8 @@ def _summary(holiday: Holiday, filled_only: bool) -> HolidayOut:
         animation_preset=holiday.animation_preset,
         animation_url=holiday.animation_url,
         animation_size=holiday.animation_size,
+        animation_count=holiday.animation_count,
+        animation_opacity=holiday.animation_opacity,
         audio_url=holiday.audio_url,
         trophy_image_url=holiday.trophy_image_url,
         shop_enabled=bool(holiday.shop_enabled),
@@ -162,15 +168,25 @@ def _detail(holiday: Holiday, filled_only: bool) -> HolidayDetailOut:
     )
 
 
-def _validate(data: HolidayIn) -> None:
-    starts = data.starts_at.replace(tzinfo=None)
-    ends = data.ends_at.replace(tzinfo=None)
-    if ends <= starts:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Дата окончания должна быть позже даты начала")
+def _validate(data: HolidayIn) -> tuple[datetime.datetime, datetime.datetime]:
+    """Проверяет праздник и возвращает границы: С — 00:00:00, ПО — 23:59:59 (МСК).
+
+    Время из запроса игнорируется: праздник всегда начинается в полночь
+    и заканчивается в последнюю секунду дня.
+    """
+    starts = data.starts_at.replace(tzinfo=None).replace(hour=0, minute=0, second=0, microsecond=0)
+    ends = data.ends_at.replace(tzinfo=None).replace(hour=23, minute=59, second=59, microsecond=0)
+    if ends < starts:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Дата окончания должна быть не раньше даты начала")
     if not data.title.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Название праздника обязательно")
     if not 10 <= data.animation_size <= 100:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Размер анимации должен быть от 10 до 100%")
+    if not 1 <= data.animation_count <= 40:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Количество объектов анимации должно быть от 1 до 40")
+    if not 10 <= data.animation_opacity <= 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Прозрачность анимации должна быть от 10 до 100%")
+    return starts, ends
 
 
 def _get_holiday(db: Session, holiday_id: int) -> Holiday:
@@ -230,16 +246,18 @@ def admin_list_holidays(
 
 @admin_router.post("", response_model=HolidayDetailOut)
 def admin_create_holiday(data: HolidayIn, db: Session = Depends(get_db)):
-    _validate(data)
+    starts, ends = _validate(data)
     holiday = Holiday(
         title=data.title.strip(),
-        starts_at=data.starts_at.replace(tzinfo=None),
-        ends_at=data.ends_at.replace(tzinfo=None),
+        starts_at=starts,
+        ends_at=ends,
         bg_image_url=data.bg_image_url,
         bg_color=data.bg_color if (data.bg_color or "").strip() else None,
         palette=data.palette,
         animation_preset=data.animation_preset,
         animation_size=data.animation_size,
+        animation_count=data.animation_count,
+        animation_opacity=data.animation_opacity,
         shop_enabled=data.shop_enabled,
     )
     db.add(holiday)
@@ -257,15 +275,17 @@ def admin_get_holiday(holiday_id: int, db: Session = Depends(get_db)):
 @admin_router.put("/{holiday_id}", response_model=HolidayDetailOut)
 def admin_update_holiday(holiday_id: int, data: HolidayIn, db: Session = Depends(get_db)):
     holiday = _get_holiday(db, holiday_id)
-    _validate(data)
+    starts, ends = _validate(data)
     holiday.title = data.title.strip()
-    holiday.starts_at = data.starts_at.replace(tzinfo=None)
-    holiday.ends_at = data.ends_at.replace(tzinfo=None)
+    holiday.starts_at = starts
+    holiday.ends_at = ends
     holiday.bg_image_url = data.bg_image_url
     holiday.bg_color = data.bg_color if (data.bg_color or "").strip() else None
     holiday.palette = data.palette
     holiday.animation_preset = data.animation_preset
     holiday.animation_size = data.animation_size
+    holiday.animation_count = data.animation_count
+    holiday.animation_opacity = data.animation_opacity
     holiday.shop_enabled = data.shop_enabled
     db.commit()
     db.refresh(holiday)

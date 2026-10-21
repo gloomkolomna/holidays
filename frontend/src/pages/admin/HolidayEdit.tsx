@@ -5,7 +5,7 @@ import { mediaUrl } from '../../api/media';
 import { PALETTES } from '../../theme';
 
 function toLocalInput(iso: string): string {
-  return iso.slice(0, 16);
+  return iso.slice(0, 10);
 }
 
 function dayLabel(day: string): string {
@@ -14,13 +14,13 @@ function dayLabel(day: string): string {
 
 function emptyForm(): HolidayInput {
   const now = new Date();
-  const start = new Date(now.getTime() + 24 * 3600 * 1000);
-  const end = new Date(now.getTime() + 5 * 24 * 3600 * 1000);
   return {
     title: '',
-    starts_at: toLocalInput(start.toISOString()),
-    ends_at: toLocalInput(end.toISOString()),
+    starts_at: toLocalInput(new Date(now.getTime() + 24 * 3600 * 1000).toISOString()),
+    ends_at: toLocalInput(new Date(now.getTime() + 5 * 24 * 3600 * 1000).toISOString()),
     animation_size: 50,
+    animation_count: 14,
+    animation_opacity: 100,
     shop_enabled: true,
   };
 }
@@ -115,6 +115,8 @@ export default function HolidayEdit() {
         palette: d.palette,
         animation_preset: d.animation_preset,
         animation_size: d.animation_size,
+        animation_count: d.animation_count,
+        animation_opacity: d.animation_opacity,
         shop_enabled: d.shop_enabled,
       });
     } catch (e: any) {
@@ -131,12 +133,13 @@ export default function HolidayEdit() {
   async function submit() {
     setBusy(true);
     setError(null);
+    const payload = { ...form, starts_at: `${form.starts_at}T00:00`, ends_at: `${form.ends_at}T23:59` };
     try {
       if (isEdit && holidayId != null) {
-        await api.adminUpdateHoliday(holidayId, form);
+        await api.adminUpdateHoliday(holidayId, payload);
         navigate('/admin/holidays');
       } else {
-        const created = await api.adminCreateHoliday(form);
+        const created = await api.adminCreateHoliday(payload);
         navigate(`/admin/holidays/${created.id}`);
       }
     } catch (e: any) {
@@ -379,7 +382,7 @@ export default function HolidayEdit() {
                 Начало (С)
                 <input
                   className="fm-input"
-                  type="datetime-local"
+                  type="date"
                   value={form.starts_at}
                   onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
                 />
@@ -388,13 +391,14 @@ export default function HolidayEdit() {
                 Окончание (ПО)
                 <input
                   className="fm-input"
-                  type="datetime-local"
+                  type="date"
                   value={form.ends_at}
                   onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
                 />
               </label>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+              Начало — в 00:00, окончание — в 23:59 (МСК), время задаётся автоматически.
               Дни праздника: {(detail?.days || []).map(dayLabel).join(', ') || '—'}.
               Сетка карточек пересоздаётся при смене дат (пустые слоты исчезнувших дней удаляются, заполненные остаются).
             </p>
@@ -424,7 +428,7 @@ export default function HolidayEdit() {
                   ))}
                 </select>
               </label>
-              <label style={{ fontSize: 14, color: 'var(--text-muted)', flex: 1, minWidth: 160 }}>
+              <label style={{ fontSize: 14, color: 'var(--text-muted)', flex: 1, minWidth: 150 }}>
                 Размер силуэта: {form.animation_size ?? 50}%
                 <input
                   type="range"
@@ -433,6 +437,30 @@ export default function HolidayEdit() {
                   step={5}
                   value={form.animation_size ?? 50}
                   onChange={(e) => setForm({ ...form, animation_size: Number(e.target.value) })}
+                  style={{ width: '100%', padding: 8, background: 'transparent', border: 'none' }}
+                />
+              </label>
+              <label style={{ fontSize: 14, color: 'var(--text-muted)', flex: 1, minWidth: 150 }}>
+                Количество: {form.animation_count ?? 14}
+                <input
+                  type="range"
+                  min={1}
+                  max={40}
+                  step={1}
+                  value={form.animation_count ?? 14}
+                  onChange={(e) => setForm({ ...form, animation_count: Number(e.target.value) })}
+                  style={{ width: '100%', padding: 8, background: 'transparent', border: 'none' }}
+                />
+              </label>
+              <label style={{ fontSize: 14, color: 'var(--text-muted)', flex: 1, minWidth: 150 }}>
+                Прозрачность: {form.animation_opacity ?? 100}%
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={5}
+                  value={form.animation_opacity ?? 100}
+                  onChange={(e) => setForm({ ...form, animation_opacity: Number(e.target.value) })}
                   style={{ width: '100%', padding: 8, background: 'transparent', border: 'none' }}
                 />
               </label>

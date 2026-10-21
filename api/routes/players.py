@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 
 from db import get_db
 from deps import require_role
-from models import Holiday, HolidayCard, User, UserCard
-from services.rewards import holiday_filled_card_ids
+from models import Holiday, User, UserCard
 
 admin_router = APIRouter(prefix="/api/admin/players", tags=["admin-players"], dependencies=[Depends(require_role("admin"))])
 
@@ -36,7 +35,10 @@ def _full_name(user: User) -> str:
 @admin_router.get("", response_model=list[PlayerOut])
 def list_players(db: Session = Depends(get_db)):
     holidays = db.query(Holiday).order_by(Holiday.starts_at.desc()).all()
-    holiday_filled = {h.id: holiday_filled_card_ids(h) for h in holidays}
+    holiday_filled = {
+        h.id: {c.id for cat in h.categories for c in cat.cards if c.title.strip()}
+        for h in holidays
+    }
     holiday_titles = {h.id: h.title for h in holidays}
 
     card_to_holiday = {

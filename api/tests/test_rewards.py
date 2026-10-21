@@ -5,13 +5,13 @@ from services.msk_time import now_msk
 from services.rewards import ensure_collection_reward
 from tests.conftest import make_user_client
 from tests.test_holidays import _multi_day_holiday_payload, _png_bytes
-from tests.test_shop import _finished_holiday
+from tests.test_shop import _finished_holiday, _shop_now_at
 
 
 def _active_holiday_one_card(admin_client, title="Короткий"):
     payload = _multi_day_holiday_payload(title)
     hid = admin_client.post("/api/admin/holidays", json=payload).json()["id"]
-    admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Кат", "norm_crosses": 300})
+    cat = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Кат", "norm_crosses": 300}).json()
     slots = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["cards"]
     card_id = None
     for slot in slots:
@@ -19,15 +19,15 @@ def _active_holiday_one_card(admin_client, title="Короткий"):
             card_id = admin_client.put(
                 f"/api/admin/holidays/{hid}/cards/{slot['id']}", json={"title": "Единственная"},
             ).json()["id"]
-    return hid, card_id
+    return hid, cat["id"], card_id
 
 
 def test_rewards_requires_auth(client):
     assert client.get("/api/rewards").status_code == 401
 
 
-def test_full_collection_awards_crystal_and_trophy(admin_client, db, uploads_tmp):
-    hid, card_id = _active_holiday_one_card(admin_client)
+def test_full_category_awards_crystal_and_trophy(admin_client, db, uploads_tmp):
+    hid, cat_id, card_id = _active_holiday_one_card(admin_client)
     with make_user_client(123) as player:
         task = player.post(f"/api/game/cards/{card_id}/take").json()
         resp = player.post(
@@ -45,19 +45,51 @@ def test_full_collection_awards_crystal_and_trophy(admin_client, db, uploads_tmp
     assert rewards["crystals"] == 1
     assert len(rewards["trophies"]) == 1
     assert rewards["trophies"][0]["holiday_id"] == hid
+    assert rewards["trophies"][0]["category_id"] == cat_id
 
-    assert ensure_collection_reward(db, 123, hid) is False
-    assert db.query(CollectionReward).filter_by(user_id=123, holiday_id=hid).count() == 1
+    assert ensure_collection_reward(db, 123, cat_id) is False
+    assert db.query(CollectionReward).filter_by(user_id=123, category_id=cat_id).count() == 1
 
 
-def test_partial_collection_no_award(admin_client, db, uploads_tmp):
+def test_category_reward_per_category_independent(admin_client, db):
+    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload("Двухразделовый")).json()["id"]
+    cat1 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Наряды", "norm_crosses": 500}).json()
+    cat2 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Декор", "norm_crosses": 900}).json()
+    detail = admin_client.get(f"/api/admin/holidays/{hid}").json()
+    by_cat = {c["id"]: c["cards"] for c in detail["categories"]}
+    card1 = admin_client.put(f"/api/admin/holidays/{hid}/cards/{by_cat[cat1['id']][0]['id']}", json={"title": "Первая"}).json()
+    card2 = admin_client.put(f"/api/admin/holidays/{hid}/cards/{by_cat[cat2['id']][0]['id']}", json={"title": "Вторая"}).json()
+
+    db.add(User(vk_id=555, role="player"))
+    db.add(__import__("models").UserCard(user_id=555, card_id=card1["id"]))
+    db.commit()
+
+    assert ensure_collection_reward(db, 555, cat1["id"]) is True
+    assert ensure_collection_reward(db, 555, cat1["id"]) is False
+    assert ensure_collection_reward(db, 555, cat2["id"]) is False
+
+    user = db.query(User).filter(User.vk_id == 555).first()
+    assert user.crystals == 1
+    assert db.query(CollectionReward).filter_by(user_id=555).count() == 1
+
+    db.add(__import__("models").UserCard(user_id=555, card_id=card2["id"]))
+    db.commit()
+    assert ensure_collection_reward(db, 555, cat2["id"]) is True
+
+    user = db.query(User).filter(User.vk_id == 555).first()
+    assert user.crystals == 2
+    assert db.query(CollectionReward).filter_by(user_id=555).count() == 2
+
+
+def test_partial_category_no_award(admin_client, db):
     hid, _ = _finished_holiday(admin_client, cards=("Тыква", "Кот"))
     detail = admin_client.get(f"/api/admin/holidays/{hid}").json()
+    cat_id = detail["categories"][0]["id"]
     card_ids = [c["id"] for c in detail["categories"][0]["cards"] if c["title"]]
     db.add(User(vk_id=777, role="player"))
     db.add(__import__("models").UserCard(user_id=777, card_id=card_ids[0]))
     db.commit()
-    assert ensure_collection_reward(db, 777, hid) is False
+    assert ensure_collection_reward(db, 777, cat_id) is False
 
 
 def _make_item(admin_client, title="Промокод Фермы", price=1, codes=("FARM-100", "FARM-200")):
@@ -70,7 +102,7 @@ def _make_item(admin_client, title="Промокод Фермы", price=1, codes
 
 
 def test_buy_item_happy_path(admin_client, db, uploads_tmp):
-    hid, card_id = _active_holiday_one_card(admin_client)
+    hid, cat_id, card_id = _active_holiday_one_card(admin_client)
     item = _make_item(admin_client)
     with make_user_client(123) as player:
         task = player.post(f"/api/game/cards/{card_id}/take").json()
@@ -157,9 +189,11 @@ def test_admin_forbidden_for_player(player_client):
     assert player_client.get("/api/admin/rewards/items").status_code == 403
 
 
-def test_trophy_card_required_for_full_collection(admin_client, db, uploads_tmp):
+def test_trophy_card_required_for_full_category(admin_client, db, uploads_tmp, monkeypatch):
+    import routes.shop as shop_module
     from models import UserCard as UC
-    from tests.test_shop import _finished_holiday
+
+    monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(5))
 
     hid, day_card_ids = _finished_holiday(admin_client, cards=("Тыква",))
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
@@ -170,9 +204,8 @@ def test_trophy_card_required_for_full_collection(admin_client, db, uploads_tmp)
 
     db.add(UC(user_id=123, card_id=day_card_ids[0]))
     db.commit()
-    from services.rewards import ensure_collection_reward
 
-    assert ensure_collection_reward(db, 123, hid) is False
+    assert ensure_collection_reward(db, 123, cat_id) is False
 
     with make_user_client(123) as player:
         shop_cards = [
@@ -193,4 +226,5 @@ def test_trophy_card_required_for_full_collection(admin_client, db, uploads_tmp)
         rewards = player.get("/api/rewards").json()
     assert rewards["crystals"] == 1
     assert len(rewards["trophies"]) == 1
-    assert rewards["trophies"][0]["holiday_id"] == hid
+    assert rewards["trophies"][0]["category_id"] == cat_id
+    assert rewards["trophies"][0]["category_title"] == "Кат"

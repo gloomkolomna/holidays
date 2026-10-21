@@ -257,6 +257,8 @@ def test_collection_counts_all_slots_grouped_by_category(admin_client, db):
     assert len(cat_cards) == 6
     assert any(c["card"]["title"] == "Единственная" for c in cat_cards)
     assert state["cards_total"] == 12
+    complete_by_id = {c["id"]: c["complete"] for c in data["categories"]}
+    assert complete_by_id == {cat1["id"]: False, cat2["id"]: False}
 
     db.add(UserCard(user_id=123, card_id=first_slot["id"]))
     db.commit()
@@ -266,6 +268,8 @@ def test_collection_counts_all_slots_grouped_by_category(admin_client, db):
     assert after["collected"] == 1
     assert state2["collected_count"] == 1
     assert state2["cards_total"] == 12
+    complete_by_id = {c["id"]: c["complete"] for c in after["categories"]}
+    assert complete_by_id == {cat1["id"]: True, cat2["id"]: False}
 
 
 def test_game_requires_auth(client):

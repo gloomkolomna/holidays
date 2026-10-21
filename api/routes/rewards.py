@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from db import get_db
 from deps import get_current_user, require_role
-from models import CollectionReward, Holiday, RewardCode, RewardItem, RewardPurchase, User
+from models import CollectionReward, Holiday, HolidayCategory, RewardCode, RewardItem, RewardPurchase, User
 
 router = APIRouter(prefix="/api/rewards", tags=["rewards"], dependencies=[Depends(get_current_user)])
 admin_router = APIRouter(prefix="/api/admin/rewards", tags=["admin-rewards"], dependencies=[Depends(require_role("admin"))])
@@ -16,6 +16,8 @@ admin_router = APIRouter(prefix="/api/admin/rewards", tags=["admin-rewards"], de
 class TrophyOut(BaseModel):
     holiday_id: int
     title: str
+    category_id: int
+    category_title: str
     crystals: int
     trophy_image_url: str | None
     awarded_at: str
@@ -67,8 +69,9 @@ def _available_codes(db: Session, item_id: int) -> int:
 def get_rewards(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     me = db.query(User).filter(User.vk_id == user.vk_id).first() or user
     trophies = (
-        db.query(CollectionReward, Holiday)
+        db.query(CollectionReward, Holiday, HolidayCategory)
         .join(Holiday, Holiday.id == CollectionReward.holiday_id)
+        .join(HolidayCategory, HolidayCategory.id == CollectionReward.category_id)
         .filter(CollectionReward.user_id == user.vk_id)
         .order_by(CollectionReward.awarded_at.desc())
         .all()
@@ -91,11 +94,13 @@ def get_rewards(user: User = Depends(get_current_user), db: Session = Depends(ge
             TrophyOut(
                 holiday_id=cr.holiday_id,
                 title=h.title,
+                category_id=cr.category_id,
+                category_title=cat.title,
                 crystals=cr.crystals,
                 trophy_image_url=h.trophy_image_url,
                 awarded_at=cr.awarded_at.isoformat(),
             )
-            for cr, h in trophies
+            for cr, h, cat in trophies
         ],
         items=[
             RewardItemOut(

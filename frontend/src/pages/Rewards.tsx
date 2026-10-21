@@ -67,7 +67,7 @@ export default function RewardsPage() {
           <span className="fm-chip">🏆 Кубков: {data?.trophies.length ?? 0}</span>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: '10px 0 0' }}>
-          +1 кристалл и кубок за каждую полностью собранную коллекцию праздника.
+          +1 кристалл и кубок за каждый полностью собранный раздел праздника.
         </p>
       </div>
 
@@ -84,16 +84,16 @@ export default function RewardsPage() {
 
       {(data?.trophies.length ?? 0) > 0 && (
         <div className="fm-card" style={{ marginTop: 12 }}>
-          <h3>Кубки за полные коллекции</h3>
+          <h3>Кубки за собранные разделы</h3>
           {data!.trophies.map((t) => (
-            <div key={t.holiday_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', gap: 8 }}>
+            <div key={`${t.holiday_id}-${t.category_id}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', gap: 8 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {t.trophy_image_url ? (
                   <img src={mediaUrl(t.trophy_image_url)} alt="" style={{ height: 44, borderRadius: 6 }} />
                 ) : (
                   '🏆'
                 )}
-                {t.title}
+                {t.title} · {t.category_title}
               </span>
               <span className="fm-chip">+{t.crystals} 💎</span>
             </div>

@@ -15,6 +15,8 @@ router = APIRouter(prefix="/api/shop", tags=["shop"], dependencies=[Depends(get_
 
 PENALTY_CROSSES = 1000
 
+SHOP_OPEN_WEEKDAYS = (5, 6)
+
 
 class ShopCardOut(BaseModel):
     id: int
@@ -34,6 +36,7 @@ class ShopHolidayOut(BaseModel):
 
 
 class ShopOut(BaseModel):
+    open: bool
     holidays: list[ShopHolidayOut]
     has_active_task: bool
     penalty_crosses: int
@@ -41,6 +44,10 @@ class ShopOut(BaseModel):
 
 def _is_finished(holiday: Holiday) -> bool:
     return now_msk().replace(tzinfo=None) >= holiday.ends_at
+
+
+def _shop_open() -> bool:
+    return now_msk().weekday() in SHOP_OPEN_WEEKDAYS
 
 
 def _card_out(card: HolidayCard) -> ShopCardOut:
@@ -58,28 +65,31 @@ def _card_out(card: HolidayCard) -> ShopCardOut:
 
 @router.get("", response_model=ShopOut)
 def get_shop(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    collected = {
-        uc.card_id
-        for uc in db.query(UserCard).filter(UserCard.user_id == user.vk_id).all()
-    }
-
-    holidays = db.query(Holiday).order_by(Holiday.ends_at.desc()).all()
+    open_now = _shop_open()
     out: list[ShopHolidayOut] = []
-    for holiday in holidays:
-        if not _is_finished(holiday) or not holiday.shop_enabled:
-            continue
-        cards = [c for c in all_cards(holiday) if c.title.strip() and c.id not in collected]
-        if not cards:
-            continue
-        out.append(
-            ShopHolidayOut(
-                holiday_id=holiday.id,
-                title=holiday.title,
-                cards=[_card_out(c) for c in cards],
+    if open_now:
+        collected = {
+            uc.card_id
+            for uc in db.query(UserCard).filter(UserCard.user_id == user.vk_id).all()
+        }
+
+        holidays = db.query(Holiday).order_by(Holiday.ends_at.desc()).all()
+        for holiday in holidays:
+            if not _is_finished(holiday) or not holiday.shop_enabled:
+                continue
+            cards = [c for c in all_cards(holiday) if c.title.strip() and c.id not in collected]
+            if not cards:
+                continue
+            out.append(
+                ShopHolidayOut(
+                    holiday_id=holiday.id,
+                    title=holiday.title,
+                    cards=[_card_out(c) for c in cards],
+                )
             )
-        )
 
     return ShopOut(
+        open=open_now,
         holidays=out,
         has_active_task=has_active_task(db, user.vk_id),
         penalty_crosses=PENALTY_CROSSES,
@@ -99,6 +109,8 @@ def take_card(data: TakeIn, user: User = Depends(get_current_user), db: Session 
     holiday = db.query(Holiday).filter(Holiday.id == card.holiday_id).first()
     if holiday is None or not _is_finished(holiday):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Карточку можно выкупить только после завершения праздника")
+    if not _shop_open():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Магазин выкупа открыт только по субботам и воскресеньям")
     if not holiday.shop_enabled:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Магазин выкупа закрыт для этого праздника")
 

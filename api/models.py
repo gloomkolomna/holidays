@@ -39,6 +39,8 @@ class Holiday(Base):
     animation_preset = Column(String, nullable=True)
     animation_url = Column(String, nullable=True)
     animation_size = Column(Integer, nullable=False, default=50, server_default="50")
+    animation_count = Column(Integer, nullable=False, default=14, server_default="14")
+    animation_opacity = Column(Integer, nullable=False, default=100, server_default="100")
     audio_url = Column(String, nullable=True)
     trophy_image_url = Column(String, nullable=True)
     shop_enabled = Column(Boolean, nullable=False, default=True, server_default="1")
@@ -137,11 +139,12 @@ class CollectionReward(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
     holiday_id = Column(Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False)
+    category_id = Column(Integer, ForeignKey("holiday_categories.id", ondelete="CASCADE"), nullable=False)
     crystals = Column(Integer, nullable=False, default=1, server_default="1")
     awarded_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
 
     __table_args__ = (
-        UniqueConstraint("user_id", "holiday_id", name="uq_collectionreward_user_holiday"),
+        UniqueConstraint("user_id", "category_id", name="uq_collectionreward_user_category"),
     )
 
 

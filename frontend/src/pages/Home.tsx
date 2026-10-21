@@ -125,6 +125,8 @@ export default function Home() {
           preset={holiday?.animation_url ? undefined : holiday?.animation_preset ?? undefined}
           imageUrl={holiday?.animation_url ? mediaUrl(holiday.animation_url) : null}
           size={holiday?.animation_size ?? 50}
+          count={holiday?.animation_count}
+          opacity={holiday?.animation_opacity}
         />
       )}
       {holiday?.audio_url && user?.music_enabled !== false && (

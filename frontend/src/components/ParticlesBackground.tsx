@@ -21,10 +21,14 @@ export default function ParticlesBackground({
   preset,
   imageUrl,
   size = 50,
+  count,
+  opacity = 100,
 }: {
   preset?: string;
   imageUrl?: string | null;
   size?: number;
+  count?: number;
+  opacity?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -71,10 +75,11 @@ export default function ParticlesBackground({
     }
 
     const baseSize = 16 + (size / 100) * 88;
-    const count = Math.min(28, Math.max(10, Math.floor(width / 30)));
+    const num = count ?? Math.min(28, Math.max(10, Math.floor(width / 30)));
+    const baseAlpha = Math.min(1, Math.max(0.1, opacity / 100));
     const speedMin = preset === 'snow' ? 8 : preset === 'sparkles' ? 4 : 14;
     const speedMax = preset === 'snow' ? 18 : preset === 'sparkles' ? 10 : 40;
-    const particles: Particle[] = Array.from({ length: count }, () => {
+    const particles: Particle[] = Array.from({ length: num }, () => {
       const angle = Math.random() * Math.PI * 2;
       const speed = 20 + Math.random() * 35;
       return {
@@ -141,14 +146,14 @@ export default function ParticlesBackground({
           ctx.save();
           ctx.translate(x, p.y);
           ctx.rotate(Math.sin(p.phase) * 0.12);
-          ctx.globalAlpha = 0.9;
+          ctx.globalAlpha = 0.9 * baseAlpha;
           ctx.drawImage(img!, -w / 2, -h / 2, w, h);
           ctx.restore();
         } else {
           ctx.save();
           ctx.translate(x, p.y);
           if (preset === 'snow') {
-            ctx.globalAlpha = 0.85;
+            ctx.globalAlpha = 0.85 * baseAlpha;
             ctx.fillStyle = '#ffffff';
             ctx.beginPath();
             ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
@@ -156,7 +161,7 @@ export default function ParticlesBackground({
           } else if (preset === 'sparkles') {
             const twinkle = Math.abs(Math.sin(p.phase * 2));
             const s = (p.size / 2) * (0.4 + twinkle * 0.8);
-            ctx.globalAlpha = 0.3 + twinkle * 0.7;
+            ctx.globalAlpha = (0.3 + twinkle * 0.7) * baseAlpha;
             ctx.strokeStyle = '#ffe9a8';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -166,7 +171,7 @@ export default function ParticlesBackground({
           } else {
             ctx.rotate(p.rotation);
             ctx.fillStyle = p.color;
-            ctx.globalAlpha = 0.75;
+            ctx.globalAlpha = 0.75 * baseAlpha;
             ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
           }
           ctx.restore();
@@ -180,7 +185,7 @@ export default function ParticlesBackground({
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
     };
-  }, [active, spriteMode, imageUrl, size, preset]);
+  }, [active, spriteMode, imageUrl, size, count, opacity, preset]);
 
   if (!active) return null;
 

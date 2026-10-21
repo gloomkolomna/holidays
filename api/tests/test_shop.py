@@ -1,9 +1,24 @@
 import datetime
 
+import pytest
+
+import routes.shop as shop_module
 from models import Task, UserCard
-from services.msk_time import now_msk
+from services.msk_time import MSK, now_msk
 from tests.conftest import make_user_client
 from tests.test_holidays import _multi_day_holiday_payload, _png_bytes
+
+
+def _shop_now_at(weekday: int) -> datetime.datetime:
+    """Ближайшая (включая сегодня) заданная дата в 12:00 МСК."""
+    now = datetime.datetime.now(MSK)
+    offset = (weekday - now.weekday()) % 7
+    return (now + datetime.timedelta(days=offset)).replace(hour=12, minute=0, second=0, microsecond=0)
+
+
+@pytest.fixture(autouse=True)
+def _open_shop(monkeypatch):
+    monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(5))
 
 
 def _finished_holiday(admin_client, title="Прошедший", shop=True, cards=("Тыква", "Кот")):
@@ -28,6 +43,35 @@ def _finished_holiday(admin_client, title="Прошедший", shop=True, cards
 
 def test_shop_requires_auth(client):
     assert client.get("/api/shop").status_code == 401
+
+
+def test_shop_open_days(monkeypatch):
+    for weekday, expected in ((5, True), (6, True), (0, False), (4, False)):
+        monkeypatch.setattr(shop_module, "now_msk", lambda w=weekday: _shop_now_at(w))
+        assert shop_module._shop_open() is expected
+
+
+def test_shop_closed_on_weekday(admin_client, monkeypatch):
+    monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(0))
+    hid, card_ids = _finished_holiday(admin_client, cards=("Тыква", "Кот"))
+    with make_user_client(123) as player:
+        data = player.get("/api/shop").json()
+        resp = player.post("/api/shop/take", json={"card_id": card_ids[0]})
+    assert data["open"] is False
+    assert data["holidays"] == []
+    assert resp.status_code == 400
+    assert "субботам" in resp.json()["detail"]
+
+
+def test_shop_open_on_weekend(admin_client, monkeypatch):
+    monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(6))
+    hid, card_ids = _finished_holiday(admin_client)
+    with make_user_client(123) as player:
+        data = player.get("/api/shop").json()
+        resp = player.post("/api/shop/take", json={"card_id": card_ids[0]})
+    assert data["open"] is True
+    assert len(data["holidays"]) == 1
+    assert resp.status_code == 200
 
 
 def test_shop_lists_finished_holidays_uncollected_cards(admin_client, db):
