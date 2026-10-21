@@ -98,6 +98,7 @@ export default function HolidayEdit() {
   const [extraTask, setExtraTask] = useState('');
   const [extraCat, setExtraCat] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, SlotDraft>>({});
+  const [editExtra, setEditExtra] = useState<number | null>(null);
   const [savedFlash, setSavedFlash] = useState<number | null>(null);
   const [editCat, setEditCat] = useState<{ id: number; title: string; norm: string } | null>(null);
 
@@ -310,6 +311,28 @@ export default function HolidayEdit() {
     await loadDetail(holidayId);
   }
 
+  async function saveExtraCard(cardId: number) {
+    if (!holidayId) return;
+    const draft = drafts[cardId];
+    if (!draft || !draft.title.trim()) return;
+    setError(null);
+    try {
+      await api.adminUpdateCard(holidayId, cardId, {
+        title: draft.title.trim(),
+        task_text: draft.task.trim() || null,
+      });
+      setEditExtra(null);
+      setDrafts((prev) => {
+        const next = { ...prev };
+        delete next[cardId];
+        return next;
+      });
+      await loadDetail(holidayId);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail || 'Не удалось сохранить карточку');
+    }
+  }
+
   function categoryHeader(cat: HolidayCategoryDetail) {
     if (editCat && editCat.id === cat.id) {
       return (
@@ -393,8 +416,8 @@ export default function HolidayEdit() {
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <label style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10 }}>
+              <label style={{ fontSize: 14, color: 'var(--text-muted)', minWidth: 0 }}>
                 Начало (С)
                 <input
                   className="fm-input"
@@ -403,7 +426,7 @@ export default function HolidayEdit() {
                   onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
                 />
               </label>
-              <label style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+              <label style={{ fontSize: 14, color: 'var(--text-muted)', minWidth: 0 }}>
                 Окончание (ПО)
                 <input
                   className="fm-input"
@@ -586,7 +609,7 @@ export default function HolidayEdit() {
               </label>
               {detail.audio_url && (
                 <>
-                  <span style={{ fontSize: 14 }}>🎧 {detail.audio_url.split('/').pop()}</span>
+                  <span style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎧 {detail.audio_url.split('/').pop()}</span>
                   <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={clearAudio}>✖ Убрать</button>
                 </>
               )}
@@ -632,23 +655,82 @@ export default function HolidayEdit() {
               </div>
             </div>
             <div className="fm-grid" style={{ marginTop: 12 }}>
-              {detail.categories.flatMap((c) => c.cards.filter((card) => card.day === null)).map((card) => (
-                <div key={card.id} className="fm-card" style={{ textAlign: 'center' }}>
-                  {card.image_url ? (
-                    <img src={mediaUrl(card.image_url)} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: 6 }} />
-                  ) : (
-                    <div style={{ fontSize: 30, marginBottom: 6 }}>🎴</div>
-                  )}
-                  <div style={{ fontSize: 15 }}>{card.title}</div>
-                  <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 6 }}>
-                    <label className="fm-btn fm-btn-xs" style={{ cursor: 'pointer' }}>
-                      🖼
-                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSlotImage(card.id, f); e.target.value = ''; }} />
-                    </label>
-                    <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => removeExtraCard(card.id, card.title)}>🗑</button>
+              {detail.categories.flatMap((c) => c.cards.filter((card) => card.day === null)).map((card) => {
+                const draft = draftFor(card);
+                const editing = editExtra === card.id;
+                return (
+                  <div key={card.id} className="fm-card" style={{ textAlign: 'center' }}>
+                    {card.image_url ? (
+                      <img src={mediaUrl(card.image_url)} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: 6 }} />
+                    ) : (
+                      <div style={{ fontSize: 30, marginBottom: 6 }}>🎴</div>
+                    )}
+                    {editing ? (
+                      <>
+                        <input
+                          className="fm-input"
+                          placeholder="Название карточки"
+                          value={draft.title}
+                          onChange={(e) => setDraft(card, { title: e.target.value })}
+                          style={{ marginBottom: 6 }}
+                        />
+                        <input
+                          className="fm-input"
+                          placeholder="Задание (необязательно)"
+                          value={draft.task}
+                          onChange={(e) => setDraft(card, { task: e.target.value })}
+                          style={{ marginBottom: 8 }}
+                        />
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                          <button
+                            className="fm-btn fm-btn-xs"
+                            disabled={!drafts[card.id]?.title.trim()}
+                            onClick={() => saveExtraCard(card.id)}
+                          >
+                            💾 Сохранить
+                          </button>
+                          <button
+                            className="fm-btn fm-btn-xs fm-btn-outline"
+                            onClick={() => {
+                              setEditExtra(null);
+                              setDrafts((prev) => {
+                                const next = { ...prev };
+                                delete next[card.id];
+                                return next;
+                              });
+                            }}
+                          >
+                            ✖ Отмена
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 15 }}>{card.title}</div>
+                        {card.task_text && (
+                          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{card.task_text}</div>
+                        )}
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                          <label className="fm-btn fm-btn-xs" style={{ cursor: 'pointer' }}>
+                            🖼
+                            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSlotImage(card.id, f); e.target.value = ''; }} />
+                          </label>
+                          <button
+                            className="fm-btn fm-btn-xs fm-btn-outline"
+                            onClick={() => {
+                              setEditExtra(card.id);
+                              setDraft(card, {});
+                            }}
+                          >
+                            ✏️
+                          </button>
+                          <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => removeExtraCard(card.id, card.title)}>🗑</button>
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

@@ -86,7 +86,6 @@ a {
   margin: 0 auto;
   padding: calc(var(--shell-pad) + var(--vk-inset-top, 0px)) var(--shell-pad) 32px;
   zoom: var(--app-scale);
-  width: calc(100% / var(--app-scale));
 }
 
 .fm-shell-header {

@@ -50,55 +50,40 @@ export default function HolidaysList() {
         <div className="fm-card" style={{ marginTop: 12, color: 'var(--danger)' }}>{error}</div>
       )}
 
-      <div className="fm-card" style={{ marginTop: 12, overflowX: 'auto' }}>
-        {!loaded ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}>
-            <span className="fm-spinner" />
-          </div>
-        ) : (
-          <table className="fm-table">
-            <thead>
-              <tr>
-                <th>Название</th>
-                <th>Сроки</th>
-                <th>Категорий</th>
-                <th>Карточек</th>
-                <th>Статус</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {holidays.map((h) => (
-                <tr key={h.id}>
-                  <td>{h.title}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {h.starts_at.slice(0, 10).split('-').reverse().join('.')} —{' '}
-                    {h.ends_at.slice(0, 10).split('-').reverse().join('.')}
-                  </td>
-                  <td>{h.categories_count}</td>
-                  <td>{h.cards_count}</td>
-                  <td>{STATUS_LABELS[h.status]}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <button className="fm-btn fm-btn-xs fm-btn-outline" onClick={() => navigate(`/admin/holidays/${h.id}`)}>
-                      ✏️ Изменить
-                    </button>{' '}
-                    <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => remove(h.id)}>
-                      🗑
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {holidays.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ color: 'var(--text-muted)' }}>
-                    Праздников пока нет — создайте первый по кнопке «Новый праздник»
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {!loaded ? (
+        <div className="fm-card" style={{ marginTop: 12, display: 'flex', justifyContent: 'center', padding: 16 }}>
+          <span className="fm-spinner" />
+        </div>
+      ) : holidays.length === 0 ? (
+        <div className="fm-card" style={{ marginTop: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+          Праздников пока нет — создайте первый по кнопке «Новый праздник»
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+          {holidays.map((h) => (
+            <div key={h.id} className="fm-card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ margin: 0 }}>{h.title}</h3>
+                <span className="fm-chip">{STATUS_LABELS[h.status]}</span>
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 8 }}>
+                🗓 {h.starts_at.slice(0, 10).split('-').reverse().join('.')} — {h.ends_at.slice(0, 10).split('-').reverse().join('.')}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+                категорий: {h.categories_count} · карточек: {h.cards_count}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                <button className="fm-btn fm-btn-sm fm-btn-outline" onClick={() => navigate(`/admin/holidays/${h.id}`)}>
+                  ✏️ Изменить
+                </button>
+                <button className="fm-btn fm-btn-sm fm-btn-danger" onClick={() => remove(h.id)}>
+                  🗑
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
