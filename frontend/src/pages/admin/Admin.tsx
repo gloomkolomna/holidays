@@ -10,6 +10,9 @@ export default function Admin() {
         <NavLink to="/admin/appearance" className={({ isActive }) => `fm-menu-tab${isActive ? ' active' : ''}`}>
           🎨 Оформление
         </NavLink>
+        <NavLink to="/admin/settings" className={({ isActive }) => `fm-menu-tab${isActive ? ' active' : ''}`}>
+          ⚙️ Настройки
+        </NavLink>
         <NavLink to="/admin/logs" className={({ isActive }) => `fm-menu-tab${isActive ? ' active' : ''}`}>
           📜 Логи
         </NavLink>

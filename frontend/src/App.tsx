@@ -13,6 +13,7 @@ const Admin = lazy(() => import('./pages/admin/Admin'));
 const HolidaysList = lazy(() => import('./pages/admin/HolidaysList'));
 const HolidayEdit = lazy(() => import('./pages/admin/HolidayEdit'));
 const AppearanceTab = lazy(() => import('./pages/admin/AppearanceTab'));
+const SettingsTab = lazy(() => import('./pages/admin/SettingsTab'));
 const LogsTab = lazy(() => import('./pages/admin/LogsTab'));
 const RewardsTab = lazy(() => import('./pages/admin/RewardsTab'));
 const StatsTab = lazy(() => import('./pages/admin/StatsTab'));
@@ -21,6 +22,7 @@ const Rewards = lazy(() => import('./pages/Rewards'));
 const Collection = lazy(() => import('./pages/Collection'));
 const Shop = lazy(() => import('./pages/Shop'));
 const MembersOnly = lazy(() => import('./pages/MembersOnly'));
+const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 
 function Skeleton() {
   return (
@@ -77,6 +79,7 @@ export default function App() {
   if (vkLoading) return <Skeleton />;
   if (vkUserId == null) return <StubPage />;
   if (loading) return <Skeleton />;
+  if (errorCode === 'game_closed') return <ComingSoon />;
   if (errorCode === 'members_only') return <MembersOnly />;
   if (!user) return <ErrorScreen message={error || 'Неизвестная ошибка'} onRetry={refresh} />;
 
@@ -100,6 +103,7 @@ export default function App() {
               <Route path="holidays/new" element={<HolidayEdit />} />
               <Route path="holidays/:id" element={<HolidayEdit />} />
               <Route path="appearance" element={<AppearanceTab />} />
+              <Route path="settings" element={<SettingsTab />} />
               <Route path="logs" element={<LogsTab />} />
               <Route path="rewards" element={<RewardsTab />} />
               <Route path="stats" element={<StatsTab />} />

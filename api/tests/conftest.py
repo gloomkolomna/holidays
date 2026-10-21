@@ -23,7 +23,7 @@ from sqlalchemy.orm import sessionmaker
 
 from db import get_db
 from deps import get_current_user
-from models import Base, User
+from models import Base, Setting, User
 
 engine = create_engine(
     "sqlite:///:memory:",
@@ -36,6 +36,10 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(autouse=True)
 def setup_db():
     Base.metadata.create_all(bind=engine)
+    seed = TestingSessionLocal()
+    seed.add(Setting(key="game_open", value="1"))
+    seed.commit()
+    seed.close()
     yield
     Base.metadata.drop_all(bind=engine)
 

@@ -476,4 +476,12 @@ export const api = {
       .get('/admin/logs', { params: { ...(level ? { level } : {}), limit } })
       .then((r) => r.data);
   },
+
+  adminGameState(): Promise<{ game_open: boolean }> {
+    return client.get('/admin/settings/game').then((r) => r.data);
+  },
+
+  adminSetGameState(game_open: boolean): Promise<{ game_open: boolean }> {
+    return client.put('/admin/settings/game', { game_open }).then((r) => r.data);
+  },
 };

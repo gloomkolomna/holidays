@@ -29,6 +29,13 @@ def get_current_user(
     if user.role != "admin":
         import config
 
+        from services.game_access import is_game_open
+
+        if not is_game_open(db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": "game_closed", "message": "Игра ещё не открыта — совсем скоро!"},
+            )
         if config.MEMBER_GATE_ENABLED:
             from services.vk_group_member import get_membership
 

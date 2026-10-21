@@ -8,6 +8,7 @@ import config
 from db import get_db
 from models import User
 from services.auth import create_access_token
+from services.game_access import is_game_open
 from services.vk_sign import verify_launch_params
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -31,6 +32,12 @@ def create_session(req: SessionRequest, db: Session = Depends(get_db)):
 
     user = db.query(User).filter(User.vk_id == vk_id).first()
     is_admin = vk_id in config.get_admin_vk_ids()
+
+    if not is_admin and not is_game_open(db):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "game_closed", "message": "Игра ещё не открыта — совсем скоро!"},
+        )
 
     if not is_admin and config.MEMBER_GATE_ENABLED:
         from services.vk_group_member import fetch_is_member, get_membership
