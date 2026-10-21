@@ -195,10 +195,10 @@ export default function HolidayEdit() {
     return drafts[card.id] ?? { title: card.title, task: card.task_text || '' };
   }
 
-  function setDraft(cardId: number, patch: Partial<SlotDraft>) {
+  function setDraft(card: HolidayCard, patch: Partial<SlotDraft>) {
     setDrafts((prev) => {
-      const cur = prev[cardId];
-      return { ...prev, [cardId]: { ...(cur ?? { title: '', task: '' }), ...patch } };
+      const cur = prev[card.id] ?? { title: card.title, task: card.task_text || '' };
+      return { ...prev, [card.id]: { ...cur, ...patch } };
     });
   }
 
@@ -713,14 +713,14 @@ export default function HolidayEdit() {
                         className="fm-input"
                         placeholder="Название карточки"
                         value={draft.title}
-                        onChange={(e) => setDraft(card.id, { title: e.target.value })}
+                        onChange={(e) => setDraft(card, { title: e.target.value })}
                         style={{ marginBottom: 6 }}
                       />
                       <input
                         className="fm-input"
                         placeholder="Задание (вышейте тыкву 40×40)"
                         value={draft.task}
-                        onChange={(e) => setDraft(card.id, { task: e.target.value })}
+                        onChange={(e) => setDraft(card, { task: e.target.value })}
                         style={{ marginBottom: 8 }}
                       />
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
