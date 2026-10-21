@@ -494,18 +494,25 @@ def test_animation_upload_keeps_dark_background(admin_client, uploads_tmp):
     assert saved.getpixel((2, 2))[3] == 255
 
 
-def test_trophy_image_upload(admin_client, uploads_tmp):
+def test_category_trophy_image_upload(admin_client, uploads_tmp):
     hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    cat_id = _create_category(admin_client, hid)
+
+    assert admin_client.post(f"/api/admin/holidays/{hid}/trophy-image").status_code == 404
+
     resp = admin_client.post(
-        f"/api/admin/holidays/{hid}/trophy-image",
+        f"/api/admin/holidays/{hid}/categories/{cat_id}/trophy-image",
         files={"file": ("cup.png", _white_bg_png((255, 200, 20)), "image/png")},
     )
     assert resp.status_code == 200
     assert resp.json()["trophy_image_url"].endswith(".png")
-    assert admin_client.get(f"/api/admin/holidays/{hid}").json()["trophy_image_url"]
+    cats = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"]
+    assert cats[0]["trophy_image_url"].endswith(".png")
+    assert "trophy_image_url" not in admin_client.get(f"/api/admin/holidays/{hid}").json()
 
-    assert admin_client.delete(f"/api/admin/holidays/{hid}/trophy-image").status_code == 200
-    assert admin_client.get(f"/api/admin/holidays/{hid}").json()["trophy_image_url"] is None
+    assert admin_client.delete(f"/api/admin/holidays/{hid}/categories/{cat_id}/trophy-image").status_code == 200
+    cats = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"]
+    assert cats[0]["trophy_image_url"] is None
 
 
 def test_extra_cards_crud(admin_client):
@@ -514,28 +521,26 @@ def test_extra_cards_crud(admin_client):
 
     extra = admin_client.post(
         f"/api/admin/holidays/{hid}/extra-cards",
-        json={"category_id": cat_id, "title": "Бонусная", "task_text": "только магазин", "is_trophy": False},
+        json={"category_id": cat_id, "title": "Бонусная", "task_text": "только магазин"},
     ).json()
     assert extra["day"] is None
-    assert extra["is_trophy"] is False
+    assert "is_trophy" not in extra
 
-    trophy = admin_client.post(
+    second = admin_client.post(
         f"/api/admin/holidays/{hid}/extra-cards",
-        json={"category_id": cat_id, "title": "Кубковая", "is_trophy": True},
+        json={"category_id": cat_id, "title": "Ещё одна"},
     ).json()
-    assert trophy["is_trophy"] is True
-    assert trophy["day"] is None
+    assert second["day"] is None
 
     detail = admin_client.get(f"/api/admin/holidays/{hid}").json()
     titles = [c["title"] for c in detail["categories"][0]["cards"]]
-    assert "Бонусная" in titles and "Кубковая" in titles
+    assert "Бонусная" in titles and "Ещё одна" in titles
 
     upd = admin_client.put(
         f"/api/admin/holidays/{hid}/cards/{extra['id']}",
-        json={"title": "Бонусная 2", "task_text": None, "is_trophy": True},
+        json={"title": "Бонусная 2", "task_text": None},
     ).json()
     assert upd["title"] == "Бонусная 2"
-    assert upd["is_trophy"] is True
 
     assert admin_client.delete(f"/api/admin/holidays/{hid}/cards/{extra['id']}").status_code == 200
 

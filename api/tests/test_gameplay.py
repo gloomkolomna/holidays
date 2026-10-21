@@ -364,23 +364,23 @@ def test_report_photos_go_to_s3_when_enabled(admin_client, db, uploads_tmp, monk
     assert len(uploaded) == 2
 
 
-def test_extra_and_trophy_cards_not_in_slider(admin_client):
+def test_extra_cards_not_in_slider(admin_client):
     hid, today, cards = _create_holiday_with_filled_days(admin_client, categories=(("Наряды", 500),))
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
     admin_client.post(
         f"/api/admin/holidays/{hid}/extra-cards",
-        json={"category_id": cat_id, "title": "Кубковая", "is_trophy": True},
+        json={"category_id": cat_id, "title": "Магазинная"},
     )
     with make_user_client(123) as player:
         state = player.get("/api/game/state").json()
         titles = {c["card"]["title"] for c in state["today_cards"]}
-    assert "Кубковая" not in titles
+    assert "Магазинная" not in titles
     assert state["cards_total"] == 7
 
-    trophy_id = [
+    extra_id = [
         c for c in admin_client.get(f"/api/holidays/{hid}").json()["categories"][0]["cards"]
-        if c["title"] == "Кубковая"
+        if c["title"] == "Магазинная"
     ][0]["id"]
     with make_user_client(123) as player:
-        resp = player.post(f"/api/game/cards/{trophy_id}/take")
+        resp = player.post(f"/api/game/cards/{extra_id}/take")
     assert resp.status_code == 400

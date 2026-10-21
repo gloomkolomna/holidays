@@ -28,7 +28,6 @@ class CardOut(BaseModel):
     task_text: str | None
     image_url: str | None
     day: str | None
-    is_trophy: bool
     norm_crosses: int
 
 
@@ -66,6 +65,7 @@ class CollectionCategoryOut(BaseModel):
     id: int
     title: str
     norm_crosses: int
+    trophy_image_url: str | None
     complete: bool
     cards: list[CollectionCardOut]
 
@@ -75,7 +75,6 @@ class CollectionOut(BaseModel):
     title: str
     collected: int
     total: int
-    trophy_image_url: str | None
     categories: list[CollectionCategoryOut]
 
 
@@ -86,7 +85,6 @@ def _card_out(card: HolidayCard) -> CardOut:
         task_text=card.task_text,
         image_url=card.image_url,
         day=card.day,
-        is_trophy=bool(card.is_trophy),
         norm_crosses=card.category.norm_crosses if card.category else 0,
     )
 
@@ -329,6 +327,7 @@ def get_collection(
                 id=cat.id,
                 title=cat.title,
                 norm_crosses=cat.norm_crosses,
+                trophy_image_url=cat.trophy_image_url,
                 complete=complete,
                 cards=entries,
             )
@@ -339,6 +338,5 @@ def get_collection(
         title=holiday.title,
         collected=collected_count,
         total=total,
-        trophy_image_url=holiday.trophy_image_url,
         categories=categories_out,
     )

@@ -41,7 +41,7 @@ function CollectionCell({ entry, onZoom }: { entry: CollectionEntry; onZoom: (ur
       )}
       {collected && (
         <>
-          <div style={{ fontSize: 14, marginTop: 6 }}>{card.is_trophy ? '🏆 ' : ''}{card.title}</div>
+          <div style={{ fontSize: 14, marginTop: 6 }}>{card.title}</div>
           {card.day && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>🗓 {dayLabel(card.day)}</div>
           )}
@@ -200,8 +200,8 @@ export default function CollectionPage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                         <h3 style={{ margin: 0 }}>{cat.title}</h3>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {cat.complete && collection.trophy_image_url && (
-                            <img src={mediaUrl(collection.trophy_image_url)} alt="Кубок" style={{ height: 44, borderRadius: 6 }} />
+                          {cat.complete && cat.trophy_image_url && (
+                            <img src={mediaUrl(cat.trophy_image_url)} alt="Кубок" style={{ height: 44, borderRadius: 6 }} />
                           )}
                           <span className="fm-chip">
                             {cat.complete ? '🏆' : '🃏'} {done}/{cat.cards.length}

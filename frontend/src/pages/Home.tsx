@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -24,6 +24,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [justCollected, setJustCollected] = useState<string | null>(null);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
+  const swiperRef = useRef<SwiperClass | null>(null);
+  const [nav, setNav] = useState({ idx: 0, beg: true, end: false });
 
   const [amount, setAmount] = useState('');
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
@@ -289,7 +291,12 @@ export default function Home() {
             spaceBetween={12}
             slidesPerView={1.15}
             centeredSlides={openCards.length > 1}
-            onSwiper={(s: SwiperClass) => { if (openCards.length === 1) s.allowSlidePrev = false; }}
+            onSwiper={(s: SwiperClass) => {
+              swiperRef.current = s;
+              if (openCards.length === 1) s.allowSlidePrev = false;
+              setNav({ idx: s.activeIndex, beg: s.isBeginning, end: s.isEnd });
+            }}
+            onSlideChange={(s: SwiperClass) => setNav({ idx: s.activeIndex, beg: s.isBeginning, end: s.isEnd })}
           >
             {openCards.map(({ card, collected, is_current }: { card: HolidayCard; collected: boolean; is_current: boolean }) => (
               <SwiperSlide key={card.id}>
@@ -352,6 +359,27 @@ export default function Home() {
               </SwiperSlide>
             ))}
           </Swiper>
+          {openCards.length > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 8 }}>
+              <button
+                className="fm-btn fm-btn-sm fm-btn-outline"
+                disabled={nav.beg}
+                onClick={() => swiperRef.current?.slidePrev()}
+              >
+                ←
+              </button>
+              <span style={{ fontSize: 14, color: 'var(--text-muted)', minWidth: 40, textAlign: 'center' }}>
+                {nav.idx + 1} / {openCards.length}
+              </span>
+              <button
+                className="fm-btn fm-btn-sm fm-btn-outline"
+                disabled={nav.end}
+                onClick={() => swiperRef.current?.slideNext()}
+              >
+                →
+              </button>
+            </div>
+          )}
           {task && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginTop: 6 }}>
               Остальные карточки дня доступны после сдачи текущего задания.

@@ -65,7 +65,7 @@ export default function StatsTab() {
                     <tr key={r.card_id}>
                       <td>{r.holiday_title}</td>
                       <td>
-                        {r.is_trophy ? '🏆 ' : ''}{r.title}
+                        {r.title}
                       </td>
                       <td>{r.count}</td>
                     </tr>

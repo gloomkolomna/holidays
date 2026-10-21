@@ -28,7 +28,6 @@ class HolidayCardOut(BaseModel):
     id: int
     category_id: int
     day: str | None
-    is_trophy: bool
     title: str
     task_text: str | None
     image_url: str | None
@@ -39,6 +38,7 @@ class HolidayCategoryOut(BaseModel):
     id: int
     title: str
     norm_crosses: int
+    trophy_image_url: str | None
     cards_count: int
 
 
@@ -60,7 +60,6 @@ class HolidayOut(BaseModel):
     animation_count: int
     animation_opacity: int
     audio_url: str | None
-    trophy_image_url: str | None
     shop_enabled: bool
     status: str
     days: list[str]
@@ -80,14 +79,12 @@ class HolidayCategoryIn(BaseModel):
 class HolidayCardIn(BaseModel):
     title: str = ""
     task_text: str | None = None
-    is_trophy: bool = False
 
 
 class HolidayExtraCardIn(BaseModel):
     category_id: int | None = None
     title: str
     task_text: str | None = None
-    is_trophy: bool = False
 
 
 class HolidayIn(BaseModel):
@@ -109,7 +106,6 @@ def _card_out(card: HolidayCard) -> HolidayCardOut:
         id=card.id,
         category_id=card.category_id,
         day=card.day,
-        is_trophy=bool(card.is_trophy),
         title=card.title,
         task_text=card.task_text,
         image_url=card.image_url,
@@ -123,6 +119,7 @@ def _category_summary(cat: HolidayCategory, filled_only: bool) -> HolidayCategor
         id=cat.id,
         title=cat.title,
         norm_crosses=cat.norm_crosses,
+        trophy_image_url=cat.trophy_image_url,
         cards_count=len(cards),
     )
 
@@ -152,7 +149,6 @@ def _summary(holiday: Holiday, filled_only: bool) -> HolidayOut:
         animation_count=holiday.animation_count,
         animation_opacity=holiday.animation_opacity,
         audio_url=holiday.audio_url,
-        trophy_image_url=holiday.trophy_image_url,
         shop_enabled=bool(holiday.shop_enabled),
         status=_status(holiday),
         days=holiday_days(holiday),
@@ -408,7 +404,6 @@ def admin_create_extra_card(holiday_id: int, data: HolidayExtraCardIn, db: Sessi
         holiday_id=holiday_id,
         category_id=cat.id,
         day=None,
-        is_trophy=bool(data.is_trophy),
         title=data.title.strip(),
         task_text=(data.task_text or "").strip() or None,
     )
@@ -432,25 +427,25 @@ def admin_delete_card(holiday_id: int, card_id: int, db: Session = Depends(get_d
     return {"ok": True}
 
 
-@admin_router.post("/{holiday_id}/trophy-image")
-def admin_upload_trophy_image(holiday_id: int, file: UploadFile, db: Session = Depends(get_db)):
-    holiday = _get_holiday(db, holiday_id)
+@admin_router.post("/{holiday_id}/categories/{category_id}/trophy-image")
+def admin_upload_category_trophy(holiday_id: int, category_id: int, file: UploadFile, db: Session = Depends(get_db)):
+    cat = _get_category(db, holiday_id, category_id)
     from services.uploads import remove_upload, save_silhouette_upload
 
-    old_url = holiday.trophy_image_url
-    holiday.trophy_image_url = save_silhouette_upload(file, prefix=f"holiday_{holiday_id}_trophy")
+    old_url = cat.trophy_image_url
+    cat.trophy_image_url = save_silhouette_upload(file, prefix=f"cat_{category_id}_trophy")
     db.commit()
     remove_upload(old_url)
-    return {"trophy_image_url": holiday.trophy_image_url}
+    return {"trophy_image_url": cat.trophy_image_url}
 
 
-@admin_router.delete("/{holiday_id}/trophy-image")
-def admin_clear_trophy_image(holiday_id: int, db: Session = Depends(get_db)):
-    holiday = _get_holiday(db, holiday_id)
+@admin_router.delete("/{holiday_id}/categories/{category_id}/trophy-image")
+def admin_clear_category_trophy(holiday_id: int, category_id: int, db: Session = Depends(get_db)):
+    cat = _get_category(db, holiday_id, category_id)
     from services.uploads import remove_upload
 
-    old_url = holiday.trophy_image_url
-    holiday.trophy_image_url = None
+    old_url = cat.trophy_image_url
+    cat.trophy_image_url = None
     db.commit()
     remove_upload(old_url)
     return {"ok": True}
@@ -485,10 +480,6 @@ def admin_update_card(holiday_id: int, card_id: int, data: HolidayCardIn, db: Se
     card = _get_card(db, holiday_id, card_id)
     card.title = data.title.strip()
     card.task_text = (data.task_text or "").strip() or None
-    if card.day is not None:
-        card.is_trophy = False
-    else:
-        card.is_trophy = bool(data.is_trophy)
     db.commit()
     db.refresh(card)
     return _card_out(card)

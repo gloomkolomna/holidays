@@ -97,7 +97,6 @@ export default function HolidayEdit() {
   const [extraTitle, setExtraTitle] = useState('');
   const [extraTask, setExtraTask] = useState('');
   const [extraCat, setExtraCat] = useState<number | null>(null);
-  const [extraTrophy, setExtraTrophy] = useState(false);
   const [drafts, setDrafts] = useState<Record<number, SlotDraft>>({});
   const [savedFlash, setSavedFlash] = useState<number | null>(null);
   const [editCat, setEditCat] = useState<{ id: number; title: string; norm: string } | null>(null);
@@ -280,15 +279,15 @@ export default function HolidayEdit() {
     await loadDetail(holidayId);
   }
 
-  async function uploadTrophy(file: File) {
+  async function uploadCatTrophy(catId: number, file: File) {
     if (!holidayId) return;
-    await api.adminUploadTrophyImage(holidayId, file);
+    await api.adminUploadCategoryTrophy(holidayId, catId, file);
     await loadDetail(holidayId);
   }
 
-  async function clearTrophy() {
+  async function clearCatTrophy(catId: number) {
     if (!holidayId) return;
-    await api.adminClearTrophyImage(holidayId);
+    await api.adminClearCategoryTrophy(holidayId, catId);
     await loadDetail(holidayId);
   }
 
@@ -298,11 +297,9 @@ export default function HolidayEdit() {
       category_id: extraCat ?? detail?.categories[0]?.id ?? null,
       title: extraTitle.trim(),
       task_text: extraTask.trim() || null,
-      is_trophy: extraTrophy,
     });
     setExtraTitle('');
     setExtraTask('');
-    setExtraTrophy(false);
     await loadDetail(holidayId);
   }
 
@@ -349,6 +346,25 @@ export default function HolidayEdit() {
         >
           ✏️ Норма/название
         </button>
+        {cat.trophy_image_url && (
+          <>
+            <img src={mediaUrl(cat.trophy_image_url)} alt="Кубок" style={{ height: 32, borderRadius: 4 }} />
+            <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => clearCatTrophy(cat.id)}>✖ Кубок</button>
+          </>
+        )}
+        <label className="fm-btn fm-btn-xs fm-btn-outline" style={{ cursor: 'pointer' }}>
+          🏆 Кубок
+          <input
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (f) uploadCatTrophy(cat.id, f);
+            }}
+          />
+        </label>
         <button
           className="fm-btn fm-btn-xs fm-btn-danger"
           style={{ marginLeft: 'auto' }}
@@ -581,38 +597,9 @@ export default function HolidayEdit() {
           </div>
 
           <div className="fm-card" style={{ marginTop: 12 }}>
-            <h3>🏆 Кубок праздника</h3>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                🖼 Загрузить кубок (PNG)
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    e.target.value = '';
-                    if (f) uploadTrophy(f);
-                  }}
-                />
-              </label>
-              {detail.trophy_image_url && (
-                <>
-                  <img src={mediaUrl(detail.trophy_image_url)} alt="" style={{ height: 56, borderRadius: 6 }} />
-                  <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={clearTrophy}>✖ Убрать</button>
-                </>
-              )}
-              <span style={{ fontSize: 13, color: 'var(--text-muted)', flexBasis: '100%' }}>
-                Кубок (PNG с подписью) выдаётся игроку, собравшему все карточки праздника, включая кубковую из магазина.
-              </span>
-            </div>
-          </div>
-
-          <div className="fm-card" style={{ marginTop: 12 }}>
             <h3>🛒 Карточки магазина (без даты)</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
               Доступны игрокам только через магазин (после праздника, выкуп 1000 крестиков).
-              Отметьте «кубковая» — без неё кубок не получить.
             </p>
             <div style={{ display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -641,10 +628,6 @@ export default function HolidayEdit() {
                 onChange={(e) => setExtraTask(e.target.value)}
               />
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{ fontSize: 15, display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input type="checkbox" checked={extraTrophy} onChange={(e) => setExtraTrophy(e.target.checked)} />
-                  🏆 Кубковая
-                </label>
                 <button className="fm-btn" onClick={addExtraCard} disabled={!extraTitle.trim()}>Добавить карточку</button>
               </div>
             </div>
@@ -654,9 +637,9 @@ export default function HolidayEdit() {
                   {card.image_url ? (
                     <img src={mediaUrl(card.image_url)} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: 6 }} />
                   ) : (
-                    <div style={{ fontSize: 30, marginBottom: 6 }}>{card.is_trophy ? '🏆' : '🎴'}</div>
+                    <div style={{ fontSize: 30, marginBottom: 6 }}>🎴</div>
                   )}
-                  <div style={{ fontSize: 15 }}>{card.is_trophy ? '🏆 ' : ''}{card.title}</div>
+                  <div style={{ fontSize: 15 }}>{card.title}</div>
                   <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 6 }}>
                     <label className="fm-btn fm-btn-xs" style={{ cursor: 'pointer' }}>
                       🖼

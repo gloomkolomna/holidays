@@ -171,16 +171,14 @@ def test_penalty_task_reportable_and_collects_card(admin_client, db, uploads_tmp
     assert uc.source == "penalty"
 
 
-def test_shop_lists_extra_and_trophy_cards(admin_client, db):
+def test_shop_lists_extra_cards(admin_client, db):
     hid, card_ids = _finished_holiday(admin_client, cards=("Тыква",))
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
     admin_client.post(f"/api/admin/holidays/{hid}/extra-cards", json={"category_id": cat_id, "title": "Бонусная"})
-    admin_client.post(f"/api/admin/holidays/{hid}/extra-cards", json={"category_id": cat_id, "title": "Кубковая", "is_trophy": True})
 
     with make_user_client(123) as player:
         data = player.get("/api/shop").json()
     cards = {c["title"]: c for h in data["holidays"] if h["holiday_id"] == hid for c in h["cards"]}
-    assert set(cards) == {"Тыква", "Бонусная", "Кубковая"}
-    assert cards["Кубковая"]["is_trophy"] is True
-    assert cards["Бонусная"]["is_trophy"] is False
-    assert cards["Кубковая"]["day"] is None
+    assert set(cards) == {"Тыква", "Бонусная"}
+    assert "is_trophy" not in cards["Бонусная"]
+    assert cards["Бонусная"]["day"] is None

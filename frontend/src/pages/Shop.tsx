@@ -118,7 +118,7 @@ export default function ShopPage() {
                       🎴
                     </div>
                   )}
-                  <div style={{ fontSize: 16 }}>{card.is_trophy ? '🏆 ' : ''}{card.title}</div>
+                  <div style={{ fontSize: 16 }}>{card.title}</div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
                     {card.day ? `День ${dayLabel(card.day)} · ` : 'без даты · '}норма была {card.norm_crosses}
                   </div>

@@ -189,7 +189,7 @@ def test_admin_forbidden_for_player(player_client):
     assert player_client.get("/api/admin/rewards/items").status_code == 403
 
 
-def test_trophy_card_required_for_full_category(admin_client, db, uploads_tmp, monkeypatch):
+def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, monkeypatch):
     import routes.shop as shop_module
     from models import UserCard as UC
 
@@ -197,9 +197,9 @@ def test_trophy_card_required_for_full_category(admin_client, db, uploads_tmp, m
 
     hid, day_card_ids = _finished_holiday(admin_client, cards=("Тыква",))
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
-    trophy = admin_client.post(
+    extra = admin_client.post(
         f"/api/admin/holidays/{hid}/extra-cards",
-        json={"category_id": cat_id, "title": "Кубковая", "is_trophy": True},
+        json={"category_id": cat_id, "title": "Магазинная"},
     ).json()
 
     db.add(UC(user_id=123, card_id=day_card_ids[0]))
@@ -212,10 +212,10 @@ def test_trophy_card_required_for_full_category(admin_client, db, uploads_tmp, m
             c for h in player.get("/api/shop").json()["holidays"]
             if h["holiday_id"] == hid for c in h["cards"]
         ]
-        trophy_card = [c for c in shop_cards if c["is_trophy"]][0]
-        assert trophy_card["id"] == trophy["id"]
+        extra_card = [c for c in shop_cards if c["title"] == "Магазинная"][0]
+        assert extra_card["id"] == extra["id"]
 
-        take = player.post("/api/shop/take", json={"card_id": trophy_card["id"]}).json()
+        take = player.post("/api/shop/take", json={"card_id": extra_card["id"]}).json()
         resp = player.post(
             f"/api/game/tasks/{take['task_id']}/report",
             data={"amount": "1000", "mode": "norm"},

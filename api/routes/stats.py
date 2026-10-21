@@ -18,7 +18,6 @@ class DailyStatRow(BaseModel):
     title: str
     holiday_id: int
     holiday_title: str
-    is_trophy: bool
     count: int
 
 
@@ -68,7 +67,6 @@ def daily_stats(day: str | None = Query(default=None), db: Session = Depends(get
             title=card.title,
             holiday_id=holiday.id,
             holiday_title=holiday.title,
-            is_trophy=bool(card.is_trophy),
             count=count,
         )
         for card, holiday, count in rows

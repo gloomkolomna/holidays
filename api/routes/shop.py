@@ -24,7 +24,6 @@ class ShopCardOut(BaseModel):
     task_text: str | None
     image_url: str | None
     day: str | None
-    is_trophy: bool
     norm_crosses: int
     penalty_crosses: int
 
@@ -57,7 +56,6 @@ def _card_out(card: HolidayCard) -> ShopCardOut:
         task_text=card.task_text,
         image_url=card.image_url,
         day=card.day,
-        is_trophy=bool(card.is_trophy),
         norm_crosses=card.category.norm_crosses if card.category else 0,
         penalty_crosses=PENALTY_CROSSES,
     )

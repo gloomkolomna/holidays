@@ -97,7 +97,7 @@ def get_rewards(user: User = Depends(get_current_user), db: Session = Depends(ge
                 category_id=cr.category_id,
                 category_title=cat.title,
                 crystals=cr.crystals,
-                trophy_image_url=h.trophy_image_url,
+                trophy_image_url=cat.trophy_image_url,
                 awarded_at=cr.awarded_at.isoformat(),
             )
             for cr, h, cat in trophies

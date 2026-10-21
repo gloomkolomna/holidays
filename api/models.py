@@ -42,7 +42,6 @@ class Holiday(Base):
     animation_count = Column(Integer, nullable=False, default=14, server_default="14")
     animation_opacity = Column(Integer, nullable=False, default=100, server_default="100")
     audio_url = Column(String, nullable=True)
-    trophy_image_url = Column(String, nullable=True)
     shop_enabled = Column(Boolean, nullable=False, default=True, server_default="1")
     created_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
 
@@ -59,6 +58,7 @@ class HolidayCategory(Base):
     holiday_id = Column(Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
     norm_crosses = Column(Integer, nullable=False, default=1000, server_default="1000")
+    trophy_image_url = Column(String, nullable=True)
     created_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
 
     holiday = relationship("Holiday", back_populates="categories")
@@ -75,7 +75,6 @@ class HolidayCard(Base):
     holiday_id = Column(Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False)
     category_id = Column(Integer, ForeignKey("holiday_categories.id", ondelete="CASCADE"), nullable=False)
     day = Column(String, nullable=True)
-    is_trophy = Column(Boolean, nullable=False, default=False, server_default="0")
     title = Column(String, nullable=False, default="", server_default="")
     task_text = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)

@@ -16,7 +16,6 @@ export interface HolidayCard {
   id: number;
   category_id: number;
   day: string | null;
-  is_trophy: boolean;
   title: string;
   task_text: string | null;
   image_url: string | null;
@@ -27,6 +26,7 @@ export interface HolidayCategory {
   id: number;
   title: string;
   norm_crosses: number;
+  trophy_image_url: string | null;
   cards_count: number;
 }
 
@@ -48,7 +48,6 @@ export interface Holiday {
   animation_count: number;
   animation_opacity: number;
   audio_url: string | null;
-  trophy_image_url: string | null;
   shop_enabled: boolean;
   status: 'upcoming' | 'active' | 'finished';
   days: string[];
@@ -100,6 +99,7 @@ export interface CollectionCategory {
   id: number;
   title: string;
   norm_crosses: number;
+  trophy_image_url: string | null;
   complete: boolean;
   cards: CollectionEntry[];
 }
@@ -109,7 +109,6 @@ export interface Collection {
   title: string;
   collected: number;
   total: number;
-  trophy_image_url: string | null;
   categories: CollectionCategory[];
 }
 
@@ -137,7 +136,6 @@ export interface ShopCard {
   task_text: string | null;
   image_url: string | null;
   day: string | null;
-  is_trophy: boolean;
   norm_crosses: number;
   penalty_crosses: number;
 }
@@ -193,7 +191,6 @@ export interface DailyStatRow {
   title: string;
   holiday_id: number;
   holiday_title: string;
-  is_trophy: boolean;
   count: number;
 }
 
@@ -280,14 +277,14 @@ export const api = {
   adminUpdateCard(
     holidayId: number,
     cardId: number,
-    data: { title: string; task_text?: string | null; is_trophy?: boolean },
+    data: { title: string; task_text?: string | null },
   ): Promise<HolidayCard> {
     return client.put(`/admin/holidays/${holidayId}/cards/${cardId}`, data).then((r) => r.data);
   },
 
   adminCreateExtraCard(
     holidayId: number,
-    data: { category_id?: number | null; title: string; task_text?: string | null; is_trophy?: boolean },
+    data: { category_id?: number | null; title: string; task_text?: string | null },
   ): Promise<HolidayCard> {
     return client.post(`/admin/holidays/${holidayId}/extra-cards`, data).then((r) => r.data);
   },
@@ -296,16 +293,16 @@ export const api = {
     return client.delete(`/admin/holidays/${holidayId}/cards/${cardId}`).then(() => undefined);
   },
 
-  adminUploadTrophyImage(holidayId: number, file: File): Promise<{ trophy_image_url: string }> {
+  adminUploadCategoryTrophy(holidayId: number, categoryId: number, file: File): Promise<{ trophy_image_url: string }> {
     const form = new FormData();
     form.append('file', file);
     return client
-      .post(`/admin/holidays/${holidayId}/trophy-image`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .post(`/admin/holidays/${holidayId}/categories/${categoryId}/trophy-image`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then((r) => r.data);
   },
 
-  adminClearTrophyImage(holidayId: number): Promise<void> {
-    return client.delete(`/admin/holidays/${holidayId}/trophy-image`).then(() => undefined);
+  adminClearCategoryTrophy(holidayId: number, categoryId: number): Promise<void> {
+    return client.delete(`/admin/holidays/${holidayId}/categories/${categoryId}/trophy-image`).then(() => undefined);
   },
 
   adminPlayers(): Promise<PlayerEntry[]> {
