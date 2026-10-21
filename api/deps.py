@@ -1,0 +1,48 @@
+from __future__ import annotations
+from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+
+from db import get_db
+from models import User
+from services.auth import decode_access_token
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_user(
+    creds: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User:
+    if creds is None or not creds.credentials:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Не авторизован")
+    vk_id = decode_access_token(creds.credentials)
+    if vk_id is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Неверный токен")
+    user = db.query(User).filter(User.vk_id == vk_id).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден")
+    if user.role != "admin" and user.status == "blocked":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Аккаунт заблокирован")
+    if user.role != "admin":
+        import config
+
+        if config.MEMBER_GATE_ENABLED:
+            from services.vk_group_member import get_membership
+
+            if not get_membership(db, user):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={"code": "members_only", "message": "Игра доступна только подписчикам группы"},
+                )
+    return user
+
+
+def require_role(*roles: str):
+    def checker(user: User = Depends(get_current_user)) -> User:
+        if user.role not in roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Недостаточно прав")
+        return user
+    return checker

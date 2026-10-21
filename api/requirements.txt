@@ -1,0 +1,14 @@
+fastapi==0.115.*
+python-multipart==0.0.*
+uvicorn[standard]==0.32.*
+gunicorn==23.*
+python-jose[cryptography]==3.*
+python-dotenv==1.*
+sqlalchemy==2.*
+alembic==1.*
+Pillow==11.*
+httpx==0.28.*
+pydantic==2.*
+pytest==8.*
+pillow-heif==1.*
+boto3==1.*

@@ -1,0 +1,22 @@
+[Unit]
+Description=Holidays API (FastAPI gunicorn)
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/holidays/api
+Environment=PATH=/opt/holidays/api/venv/bin
+Environment=PYTHONPATH=/opt/holidays/api
+ExecStart=/opt/holidays/api/venv/bin/gunicorn \
+    -w 2 \
+    -k uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8004 \
+    --access-logfile /var/log/holidays/api-access.log \
+    --error-logfile /var/log/holidays/api-error.log \
+    --log-level warning \
+    --timeout 120 \
+    main:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

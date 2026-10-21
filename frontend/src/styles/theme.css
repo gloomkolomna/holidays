@@ -1,0 +1,435 @@
+:root {
+  /* ── Палитра: праздничная ночь / золото / ягода ── */
+  --plum: #6b3fa0;
+  --plum-deep: #3d2464;
+  --gold: #e0a83e;
+  --gold-light: #f4d58d;
+  --gold-deep: #c8892a;
+  --berry: #c2185b;
+  --night: #1a1030;
+
+  /* ── Семантические алиасы ── */
+  --bg: #1a1030;
+  --surface-rgb: 18, 11, 34;
+  --surface: rgba(var(--surface-rgb), 0.86);
+  --surface-strong: rgba(var(--surface-rgb), 0.94);
+  --surface-solid: rgb(var(--surface-rgb));
+  --border: rgba(244, 213, 141, 0.28);
+  --text-primary: #ffffff;
+  --text-secondary: #e4d9c3;
+  --text-muted: #bfae93;
+  --accent: var(--gold);
+  --accent-warm: var(--gold-light);
+  --danger: #c4574a;
+  --success: #6fae4a;
+
+  /* ── Типографика ── */
+  --font-display: 'Marcellus', Georgia, serif;
+  --font-body: 'PT Serif', Georgia, serif;
+
+  /* ── Масштабирование ── */
+  --app-scale: 1;
+  --shell-max-width: 600px;
+  --shell-pad: 14px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background: var(--bg);
+  min-height: 100vh;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(20, 12, 38, 0.45) 100%);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0 0 0.4em;
+  letter-spacing: 0.02em;
+}
+
+h1 { font-size: 26px; }
+h2 { font-size: 22px; }
+h3 { font-size: 19px; }
+h4 { font-size: 17px; }
+
+a {
+  color: var(--accent-warm);
+}
+
+/* ── Оболочка приложения ── */
+.fm-shell {
+  max-width: var(--shell-max-width);
+  margin: 0 auto;
+  padding: calc(var(--shell-pad) + var(--vk-inset-top, 0px)) var(--shell-pad) 32px;
+  zoom: var(--app-scale);
+  width: calc(100% / var(--app-scale));
+}
+
+.fm-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin: calc(-1 * var(--shell-pad)) calc(-1 * var(--shell-pad)) 14px;
+  margin-top: calc(-1 * (var(--shell-pad) + var(--vk-inset-top, 0px)));
+  background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.97) 0%, rgba(var(--surface-rgb), 0.90) 100%);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.fm-shell-title {
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0.03em;
+  color: var(--gold-light);
+  flex: 1;
+  text-align: center;
+}
+
+.fm-menu-btn {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.fm-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(8, 4, 16, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.fm-menu {
+  position: fixed;
+  top: calc(58px + var(--vk-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  width: min(92vw, 400px);
+  background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.97) 0%, rgba(var(--surface-rgb), 0.92) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fm-slide-down 0.22s ease both;
+}
+
+@keyframes fm-slide-down {
+  from { opacity: 0; transform: translate(-50%, -14px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.fm-menu-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 17px;
+  border: 1px solid transparent;
+}
+
+.fm-menu-item:hover {
+  background: var(--surface);
+}
+
+.fm-menu-item.active {
+  background: var(--surface-strong);
+  border-color: var(--border);
+  color: var(--gold-light);
+}
+
+.fm-menu-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.fm-menu-tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 16px;
+}
+
+.fm-menu-tab.active {
+  background: rgba(var(--surface-rgb), 0.8);
+  color: var(--gold-light);
+}
+
+/* ── Карточки ── */
+.fm-card {
+  background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.93) 0%, rgba(var(--surface-rgb), 0.85) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+button.fm-card {
+  color: var(--text-primary);
+}
+
+/* ── Кнопки ── */
+.fm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 15px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+  max-width: 100%;
+  color: #241505;
+  background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
+  border: 1px solid #8a6420;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.1s ease;
+  text-decoration: none;
+}
+.fm-btn:hover { filter: brightness(1.08); }
+.fm-btn:active { transform: translateY(1px); }
+.fm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.fm-btn-outline {
+  background: var(--surface-solid);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+.fm-btn-outline:hover { background: rgba(var(--surface-rgb), 0.8); }
+
+.fm-btn-sm { padding: 7px 12px; font-size: 15px; }
+.fm-btn-xs { padding: 5px 9px; font-size: 14px; }
+.fm-btn-danger {
+  background: linear-gradient(180deg, #d4685a 0%, #a8443a 100%);
+  border-color: #8e3a31;
+  color: #fff;
+}
+
+/* ── Сетка карточек ── */
+.fm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 769px) {
+  .fm-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ── Сетка статов профиля ── */
+.fm-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (min-width: 481px) {
+  .fm-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ── Поля ввода ── */
+.fm-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--text-primary);
+  background: #170d29;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.fm-input::placeholder { color: var(--text-muted); }
+
+/* ── Чипы / бейджи ── */
+.fm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  font-size: 15px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+/* ── Таблицы (админка) ── */
+.fm-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 15px;
+  background: linear-gradient(180deg, rgba(var(--surface-rgb), 0.93) 0%, rgba(var(--surface-rgb), 0.85) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.fm-table th,
+.fm-table td {
+  padding: 9px 11px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+.fm-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  background: rgba(var(--surface-rgb), 0.6);
+}
+.fm-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Прогресс-бар ── */
+.fm-progress {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.fm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--gold-deep));
+  transition: width 0.3s ease;
+}
+
+/* ── Режим только просмотра ── */
+.fm-view-only button,
+.fm-view-only input,
+.fm-view-only select,
+.fm-view-only textarea,
+.fm-view-only a,
+.fm-view-only [style*="cursor:pointer"],
+.fm-view-only [style*="cursor: pointer"] {
+  pointer-events: none !important;
+  opacity: 0.55;
+}
+
+.fm-view-only .fm-view-allow,
+.fm-view-only .fm-view-allow button,
+.fm-view-only .fm-view-allow input,
+.fm-view-only .fm-view-allow select,
+.fm-view-only .fm-view-allow textarea,
+.fm-view-only .fm-view-allow a,
+.fm-view-only .fm-view-allow [style*="cursor:pointer"],
+.fm-view-only .fm-view-allow [style*="cursor: pointer"] {
+  pointer-events: auto !important;
+  opacity: 1;
+}
+
+/* ── Анимации появления ── */
+@keyframes fm-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fm-rise { animation: fm-rise 0.3s ease both; }
+.fm-rise-d1 { animation: fm-rise 0.3s ease 0.05s both; }
+.fm-rise-d2 { animation: fm-rise 0.3s ease 0.1s both; }
+
+@keyframes fm-pop {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.fm-pop { animation: fm-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* ── Спиннер загрузки ── */
+@keyframes fm-spin {
+  to { transform: rotate(360deg); }
+}
+.fm-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: fm-spin 0.7s linear infinite;
+}
+
+/* ── Адаптив ── */
+
+@media (max-width: 480px) {
+  :root {
+    --app-scale: 1.3;
+    --shell-max-width: 100%;
+    --shell-pad: 12px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  :root {
+    --app-scale: 1.15;
+    --shell-max-width: 100%;
+    --shell-pad: 16px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1200px) {
+  :root {
+    --app-scale: 1.1;
+    --shell-max-width: 700px;
+    --shell-pad: 18px;
+  }
+}
+
+@media (min-width: 1201px) {
+  :root {
+    --app-scale: 1.2;
+    --shell-max-width: 800px;
+    --shell-pad: 20px;
+  }
+}
