@@ -262,7 +262,7 @@ button.fm-card {
 
 @media (min-width: 769px) {
   .fm-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   }
 }
 
@@ -421,7 +421,7 @@ button.fm-card {
 @media (min-width: 769px) and (max-width: 1200px) {
   :root {
     --app-scale: 1.1;
-    --shell-max-width: 700px;
+    --shell-max-width: 100%;
     --shell-pad: 18px;
   }
 }
@@ -429,7 +429,7 @@ button.fm-card {
 @media (min-width: 1201px) {
   :root {
     --app-scale: 1.2;
-    --shell-max-width: 800px;
+    --shell-max-width: 100%;
     --shell-pad: 20px;
   }
 }
