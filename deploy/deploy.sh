@@ -3,7 +3,7 @@
 # Деплой «Улица праздников» на прод.
 #
 # Адаптация deploy/deploy.sh из «Ферма» (конвенции 1:1).
-# Различия: пути /opt/holidays, порт 8004, префикс /holidays/.
+# Различия: пути /opt/holidays, порт 8005 (8004 занят pay-gateway), префикс /holidays/.
 #
 # Режим восстановления (флаг -recovery / --recovery):
 #   ./deploy.sh -recovery
@@ -171,7 +171,7 @@ FULL_BACKUP_DIR="/opt/holidays-backups"
 FULL_BACKUPS_TO_KEEP=5
 GIT_REMOTE="https://github.com/gloomkolomna/holidays.git"
 GIT_BRANCH="main"
-HEALTH_URL="http://127.0.0.1:8004/api/"
+HEALTH_URL="http://127.0.0.1:8005/api/"
 LOG_FILE="$API_DIR/deploy.log"
 PREV_ASSETS_DIR="$FRONTEND_DIR/dist.assets.prev"
 ASSETS_KEEP_DAYS=7

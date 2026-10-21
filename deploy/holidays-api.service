@@ -9,7 +9,7 @@ Environment=PYTHONPATH=/opt/holidays/api
 ExecStart=/opt/holidays/api/venv/bin/gunicorn \
     -w 2 \
     -k uvicorn.workers.UvicornWorker \
-    --bind 127.0.0.1:8004 \
+    --bind 127.0.0.1:8005 \
     --access-logfile /var/log/holidays/api-access.log \
     --error-logfile /var/log/holidays/api-error.log \
     --log-level warning \
