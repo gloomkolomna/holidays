@@ -163,7 +163,7 @@ export default function Home() {
 
       <div className="fm-card">
         <h2>{state.holiday_title}</h2>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
           <span className="fm-chip">🗓 День: {dayLabel(state.day)}</span>
           <Link className="fm-btn fm-btn-sm fm-btn-outline" to="/collection">
             🃏 Коллекция {state.collected_count}/{state.cards_total}
