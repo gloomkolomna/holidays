@@ -291,10 +291,6 @@ export default function Home() {
             spaceBetween={12}
             slidesPerView={1.15}
             centeredSlides={openCards.length > 1}
-            breakpoints={{
-              769: { slidesPerView: 2.2, centeredSlides: false },
-              1200: { slidesPerView: 3.2, centeredSlides: false },
-            }}
             onSwiper={(s: SwiperClass) => {
               swiperRef.current = s;
               if (openCards.length === 1) s.allowSlidePrev = false;
