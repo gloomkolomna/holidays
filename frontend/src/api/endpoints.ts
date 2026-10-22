@@ -235,10 +235,21 @@ export interface PlayerCardEntry {
   earned_at: string | null;
 }
 
+export interface PlayerReportEntry {
+  id: number;
+  amount: number;
+  photo_before: string | null;
+  photo_after: string | null;
+  created_at: string | null;
+  card_title: string;
+  holiday_title: string;
+}
+
 export interface PlayerDetail {
   player: PlayerEntry;
   active_task: PlayerTaskEntry | null;
   cards: PlayerCardEntry[];
+  reports: PlayerReportEntry[];
 }
 
 export interface DailyStats {

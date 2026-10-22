@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
-import { api, type PlayerCardEntry, type PlayerDetail as PlayerDetailData, type PlayerTaskEntry } from '../../api/endpoints';
+import { api, type PlayerCardEntry, type PlayerDetail as PlayerDetailData, type PlayerReportEntry, type PlayerTaskEntry } from '../../api/endpoints';
 import { mediaUrl } from '../../api/media';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
@@ -17,7 +17,7 @@ function kindLabel(kind: string): string {
   return kind === 'penalty' ? 'Штрафное (магазин)' : 'Дневное';
 }
 
-function TaskCard({ task }: { task: PlayerTaskEntry }) {
+function TaskCard({ task, onZoom }: { task: PlayerTaskEntry; onZoom: (url: string) => void }) {
   return (
     <div className="fm-card" style={{ marginTop: 12 }}>
       <h3>📌 Активное задание</h3>
@@ -27,20 +27,56 @@ function TaskCard({ task }: { task: PlayerTaskEntry }) {
         <span className="fm-chip">норма: {task.required_crosses}</span>
         {task.taken_at && <span className="fm-chip">взято: {fmtDateTime(task.taken_at)}</span>}
       </div>
-      <div style={{ fontSize: 16, marginTop: 10 }}>{task.card_title}</div>
-      {task.card_day && (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>🗓 {dayLabel(task.card_day)}</div>
-      )}
-      {task.card_task_text && (
-        <div style={{ color: 'var(--text-secondary)', marginTop: 6 }}>{task.card_task_text}</div>
-      )}
-      {task.card_image_url && (
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginTop: 10, flexWrap: 'wrap' }}>
+        {task.card_image_url && (
+          <img
+            src={mediaUrl(task.card_image_url)}
+            alt={task.card_title}
+            style={{ height: 110, borderRadius: 8, cursor: 'zoom-in', objectFit: 'cover' }}
+            onClick={() => onZoom(task.card_image_url!)}
+          />
+        )}
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontSize: 16 }}>{task.card_title}</div>
+          {task.card_day && (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>🗓 {dayLabel(task.card_day)}</div>
+          )}
+          {task.card_task_text && (
+            <div style={{ color: 'var(--text-secondary)', marginTop: 6 }}>{task.card_task_text}</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReportPhoto({ url, label, onZoom }: { url: string | null; label: string; onZoom: (u: string) => void }) {
+  return (
+    <div style={{ textAlign: 'center' }}>
+      {url ? (
         <img
-          src={mediaUrl(task.card_image_url)}
-          alt={task.card_title}
-          style={{ width: '100%', borderRadius: 8, marginTop: 10 }}
+          src={mediaUrl(url)}
+          alt={label}
+          style={{ width: 96, height: 96, borderRadius: 8, cursor: 'zoom-in', objectFit: 'cover', display: 'block' }}
+          onClick={() => onZoom(url)}
         />
+      ) : (
+        <div
+          style={{
+            width: 96,
+            height: 96,
+            borderRadius: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--surface-strong)',
+            border: '1px dashed var(--border)',
+          }}
+        >
+          📷
+        </div>
       )}
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -87,7 +123,7 @@ export default function PlayerDetail() {
     );
   }
 
-  const { player, active_task: task, cards } = data;
+  const { player, active_task: task, cards, reports } = data;
   const byHoliday = new Map<number, { title: string; items: PlayerCardEntry[] }>();
   for (const c of cards) {
     const group = byHoliday.get(c.holiday_id) || { title: c.holiday_title, items: [] };
@@ -135,13 +171,40 @@ export default function PlayerDetail() {
       </div>
 
       {task ? (
-        <TaskCard task={task} />
+        <TaskCard task={task} onZoom={setZoomImg} />
       ) : (
         <div className="fm-card" style={{ marginTop: 12 }}>
           <h3>📌 Активное задание</h3>
           <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>Нет активного задания</p>
         </div>
       )}
+
+      <div className="fm-card" style={{ marginTop: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0 }}>📋 Отчёты</h3>
+          <span className="fm-chip">всего: {reports.length}</span>
+        </div>
+        {reports.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>Отчётов пока нет</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+            {reports.map((r: PlayerReportEntry) => (
+              <div key={r.id} className="fm-card" style={{ padding: 10 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDateTime(r.created_at)}</span>
+                  <span style={{ fontSize: 14 }}>{r.card_title || '—'}</span>
+                  {r.holiday_title && <span className="fm-chip">{r.holiday_title}</span>}
+                  <span className="fm-chip" style={{ marginLeft: 'auto' }}>✖️ {r.amount}</span>
+                </div>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  <ReportPhoto url={r.photo_before} label="до" onZoom={setZoomImg} />
+                  <ReportPhoto url={r.photo_after} label="после" onZoom={setZoomImg} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="fm-card" style={{ marginTop: 12 }}>
         <h3>🃏 Коллекция</h3>

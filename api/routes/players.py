@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from db import get_db
 from deps import require_role
-from models import Holiday, HolidayCard, HolidayCategory, Task, User, UserCard
+from models import Holiday, HolidayCard, HolidayCategory, StitchReport, Task, User, UserCard
 
 admin_router = APIRouter(prefix="/api/admin/players", tags=["admin-players"], dependencies=[Depends(require_role("admin"))])
 
@@ -52,10 +52,21 @@ class PlayerCardOut(BaseModel):
     earned_at: str | None
 
 
+class PlayerReportOut(BaseModel):
+    id: int
+    amount: int
+    photo_before: str | None
+    photo_after: str | None
+    created_at: str | None
+    card_title: str
+    holiday_title: str
+
+
 class PlayerDetailOut(BaseModel):
     player: PlayerOut
     active_task: PlayerTaskOut | None
     cards: list[PlayerCardOut]
+    reports: list[PlayerReportOut]
 
 
 def _full_name(user: User) -> str:
@@ -175,4 +186,25 @@ def get_player(vk_id: int, db: Session = Depends(get_db)):
         for uc, card, cat in rows
     ]
 
-    return PlayerDetailOut(player=player, active_task=active_task_out, cards=cards_out)
+    report_rows = (
+        db.query(StitchReport, Task, HolidayCard)
+        .outerjoin(Task, StitchReport.task_id == Task.id)
+        .outerjoin(HolidayCard, Task.card_id == HolidayCard.id)
+        .filter(StitchReport.user_id == vk_id)
+        .order_by(StitchReport.created_at.desc())
+        .all()
+    )
+    reports_out = [
+        PlayerReportOut(
+            id=report.id,
+            amount=report.amount,
+            photo_before=report.photo_before,
+            photo_after=report.photo_after,
+            created_at=report.created_at.isoformat() if report.created_at else None,
+            card_title=card.title if card else "",
+            holiday_title=holiday_titles.get(card.holiday_id, "") if card else "",
+        )
+        for report, task, card in report_rows
+    ]
+
+    return PlayerDetailOut(player=player, active_task=active_task_out, cards=cards_out, reports=reports_out)

@@ -34,7 +34,9 @@ def test_player_detail_not_found(admin_client):
 
 
 def test_player_detail_with_task_and_collection(admin_client, db, uploads_tmp):
-    from models import Task, User as U, UserCard as UC
+    import datetime
+
+    from models import StitchReport, Task, User as U, UserCard as UC
     from tests.test_holidays import _multi_day_holiday_payload
 
     hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload("Праздник Б")).json()["id"]
@@ -49,8 +51,30 @@ def test_player_detail_with_task_and_collection(admin_client, db, uploads_tmp):
     ]
 
     db.add(U(vk_id=123, role="player", display_name="Анна"))
-    db.add(Task(user_id=123, holiday_id=hid, card_id=card_ids[0], kind="daily", required_crosses=300))
+    task = Task(user_id=123, holiday_id=hid, card_id=card_ids[0], kind="daily", required_crosses=300)
+    db.add(task)
+    db.flush()
     db.add(UC(user_id=123, card_id=card_ids[1]))
+    db.add(
+        StitchReport(
+            user_id=123,
+            task_id=task.id,
+            amount=350,
+            photo_before="https://s3.example/b.jpg",
+            photo_after="/uploads/a.jpg",
+            created_at=datetime.datetime(2026, 10, 21, 10, 0, 0),
+        )
+    )
+    db.add(
+        StitchReport(
+            user_id=123,
+            task_id=None,
+            amount=100,
+            photo_before=None,
+            photo_after=None,
+            created_at=datetime.datetime(2026, 10, 21, 12, 0, 0),
+        )
+    )
     db.commit()
 
     resp = admin_client.get("/api/admin/players/123")
@@ -59,17 +83,29 @@ def test_player_detail_with_task_and_collection(admin_client, db, uploads_tmp):
     assert data["player"]["display_name"] == "Анна"
     assert data["player"]["cards_total"] == 1
 
-    task = data["active_task"]
-    assert task is not None
-    assert task["kind"] == "daily"
-    assert task["required_crosses"] == 300
-    assert task["holiday_title"] == "Праздник Б"
-    assert task["card_title"].startswith("К-")
+    task_out = data["active_task"]
+    assert task_out is not None
+    assert task_out["kind"] == "daily"
+    assert task_out["required_crosses"] == 300
+    assert task_out["holiday_title"] == "Праздник Б"
+    assert task_out["card_title"].startswith("К-")
 
     assert [c["card_id"] for c in data["cards"]] == [card_ids[1]]
     assert data["cards"][0]["category_title"] == "Кат"
     assert data["cards"][0]["holiday_title"] == "Праздник Б"
     assert data["cards"][0]["source"] == "daily"
+
+    reports = data["reports"]
+    assert len(reports) == 2
+    assert reports[0]["amount"] == 100
+    assert reports[0]["card_title"] == ""
+    assert reports[0]["holiday_title"] == ""
+    assert reports[0]["created_at"] is not None
+    assert reports[1]["amount"] == 350
+    assert reports[1]["photo_before"] == "https://s3.example/b.jpg"
+    assert reports[1]["photo_after"] == "/uploads/a.jpg"
+    assert reports[1]["card_title"].startswith("К-")
+    assert reports[1]["holiday_title"] == "Праздник Б"
 
 
 def test_player_detail_without_task(admin_client, db):
@@ -81,6 +117,7 @@ def test_player_detail_without_task(admin_client, db):
     data = admin_client.get("/api/admin/players/130").json()
     assert data["active_task"] is None
     assert data["cards"] == []
+    assert data["reports"] == []
 
 
 def test_players_list_with_collections(admin_client, db, uploads_tmp):
