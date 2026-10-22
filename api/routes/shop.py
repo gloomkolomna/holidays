@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from db import get_db
 from deps import get_current_user
 from models import Holiday, HolidayCard, Task, User, UserCard
-from services.cards_grid import all_cards, has_active_task
+from services.cards_grid import all_cards, get_active_holiday, has_active_task
 from services.msk_time import now_msk
 
 router = APIRouter(prefix="/api/shop", tags=["shop"], dependencies=[Depends(get_current_user)])
@@ -36,6 +36,9 @@ class ShopHolidayOut(BaseModel):
 
 class ShopOut(BaseModel):
     open: bool
+    reason: str
+    active_holiday_title: str | None
+    active_holiday_ends_at: str | None
     holidays: list[ShopHolidayOut]
     has_active_task: bool
     penalty_crosses: int
@@ -63,7 +66,13 @@ def _card_out(card: HolidayCard) -> ShopCardOut:
 
 @router.get("", response_model=ShopOut)
 def get_shop(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    open_now = _shop_open()
+    active = get_active_holiday(db)
+    active_title = active.title if active else None
+    active_ends = active.ends_at.isoformat() if active else None
+
+    open_now = _shop_open() and active is None
+    reason = "open" if open_now else ("holiday_active" if active else "weekday")
+
     out: list[ShopHolidayOut] = []
     if open_now:
         collected = {
@@ -88,6 +97,9 @@ def get_shop(user: User = Depends(get_current_user), db: Session = Depends(get_d
 
     return ShopOut(
         open=open_now,
+        reason=reason,
+        active_holiday_title=active_title,
+        active_holiday_ends_at=active_ends,
         holidays=out,
         has_active_task=has_active_task(db, user.vk_id),
         penalty_crosses=PENALTY_CROSSES,
@@ -100,6 +112,13 @@ class TakeIn(BaseModel):
 
 @router.post("/take")
 def take_card(data: TakeIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    active = get_active_holiday(db)
+    if active is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Магазин выкупа откроется после завершения праздника «{active.title}»",
+        )
+
     card = db.query(HolidayCard).filter(HolidayCard.id == data.card_id).first()
     if card is None or not card.title.strip() or card.category is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Карточка не найдена")

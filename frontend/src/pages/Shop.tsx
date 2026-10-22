@@ -80,8 +80,22 @@ export default function ShopPage() {
       {shop && !shop.open ? (
         <div className="fm-card" style={{ marginTop: 12, textAlign: 'center' }}>
           <div style={{ fontSize: 28 }}>🔒</div>
-          Магазин выкупа открыт по выходным — суббота и воскресенье
-          (время московское). Загляните в ближайшую субботу!
+          {shop.reason === 'holiday_active' ? (
+            <>
+              Магазин выкупа откроется после завершения праздника
+              {shop.active_holiday_title ? ` «${shop.active_holiday_title}»` : ''}
+              {shop.active_holiday_ends_at
+                ? ` — ${shop.active_holiday_ends_at.slice(0, 10).split('-').reverse().join('.')}`
+                : ''}
+              . Соберите карточки во время праздника — после его конца здесь можно будет добрать пропущенные
+              (штраф {shop.penalty_crosses} крестиков).
+            </>
+          ) : (
+            <>
+              Магазин выкупа открыт по выходным — суббота и воскресенье
+              (время московское). Загляните в ближайшую субботу!
+            </>
+          )}
         </div>
       ) : (shop?.holidays.length ?? 0) === 0 ? (
         <div className="fm-card" style={{ marginTop: 12, textAlign: 'center' }}>

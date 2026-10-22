@@ -51,6 +51,22 @@ def test_shop_open_days(monkeypatch):
         assert shop_module._shop_open() is expected
 
 
+def test_shop_closed_while_holiday_active(admin_client, monkeypatch):
+    monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(5))
+    hid, card_ids = _finished_holiday(admin_client)
+    admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload("Идущий"))
+
+    with make_user_client(123) as player:
+        data = player.get("/api/shop").json()
+        resp = player.post("/api/shop/take", json={"card_id": card_ids[0]})
+    assert data["open"] is False
+    assert data["reason"] == "holiday_active"
+    assert data["active_holiday_title"] == "Идущий"
+    assert data["active_holiday_ends_at"] is not None
+    assert resp.status_code == 400
+    assert "после завершения" in resp.json()["detail"]
+
+
 def test_shop_closed_on_weekday(admin_client, monkeypatch):
     monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(0))
     hid, card_ids = _finished_holiday(admin_client, cards=("Тыква", "Кот"))
@@ -58,6 +74,7 @@ def test_shop_closed_on_weekday(admin_client, monkeypatch):
         data = player.get("/api/shop").json()
         resp = player.post("/api/shop/take", json={"card_id": card_ids[0]})
     assert data["open"] is False
+    assert data["reason"] == "weekday"
     assert data["holidays"] == []
     assert resp.status_code == 400
     assert "субботам" in resp.json()["detail"]
@@ -70,6 +87,7 @@ def test_shop_open_on_weekend(admin_client, monkeypatch):
         data = player.get("/api/shop").json()
         resp = player.post("/api/shop/take", json={"card_id": card_ids[0]})
     assert data["open"] is True
+    assert data["reason"] == "open"
     assert len(data["holidays"]) == 1
     assert resp.status_code == 200
 
@@ -92,13 +110,18 @@ def test_shop_lists_finished_holidays_uncollected_cards(admin_client, db):
     assert all(c["penalty_crosses"] == 1000 for c in shop_holiday["cards"])
 
 
-def test_shop_hides_disabled_and_unfinished(admin_client):
+def test_shop_hides_disabled_and_upcoming(admin_client):
     _finished_holiday(admin_client, title="Закрытый", shop=False)
     _finished_holiday(admin_client, title="Открытый", shop=True)
-    admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload("Идущий"))
+    now = now_msk().replace(tzinfo=None)
+    payload = _multi_day_holiday_payload("Будущий")
+    payload["starts_at"] = (now + datetime.timedelta(days=3)).isoformat()
+    payload["ends_at"] = (now + datetime.timedelta(days=8)).isoformat()
+    admin_client.post("/api/admin/holidays", json=payload)
 
     with make_user_client(123) as player:
         data = player.get("/api/shop").json()
+    assert data["open"] is True
     titles = {h["title"] for h in data["holidays"]}
     assert titles == {"Открытый"}
 

@@ -148,6 +148,9 @@ export interface ShopHoliday {
 
 export interface Shop {
   open: boolean;
+  reason: 'open' | 'weekday' | 'holiday_active';
+  active_holiday_title: string | null;
+  active_holiday_ends_at: string | null;
   holidays: ShopHoliday[];
   has_active_task: boolean;
   penalty_crosses: number;
