@@ -92,7 +92,10 @@ export default function Home() {
       setSagaFile(null);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось отправить отчёт');
+      const detail = e?.response?.data?.detail;
+      if (detail) setError(String(detail));
+      else if (e?.response) setError('Не удалось отправить отчёт — попробуйте ещё раз');
+      else setError('Нет связи с сервером — проверьте интернет и попробуйте ещё раз');
     } finally {
       setBusy(false);
     }

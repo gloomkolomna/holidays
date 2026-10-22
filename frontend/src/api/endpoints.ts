@@ -1,5 +1,5 @@
 import client from './client';
-import { compressImage } from './media';
+import { compressImageSafe } from './media';
 
 export interface MeUser {
   vk_id: number;
@@ -457,9 +457,9 @@ export const api = {
     preview?: File | null,
     saga?: File | null,
   ): Promise<{ ok: boolean; card_id: number; collected: boolean; mode: string }> {
-    const compresses: Promise<File>[] = [compressImage(before), compressImage(after)];
-    if (preview) compresses.push(compressImage(preview));
-    if (saga) compresses.push(compressImage(saga));
+    const compresses: Promise<File>[] = [compressImageSafe(before), compressImageSafe(after)];
+    if (preview) compresses.push(compressImageSafe(preview));
+    if (saga) compresses.push(compressImageSafe(saga));
     return Promise.all(compresses).then((files) => {
       const [b, a, p, s] = files;
       const form = new FormData();

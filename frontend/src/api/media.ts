@@ -35,3 +35,7 @@ export function compressImage(file: File, maxSize = 1280, quality = 0.85): Promi
     img.src = url;
   });
 }
+
+export function compressImageSafe(file: File, maxSize = 1280, quality = 0.85): Promise<File> {
+  return compressImage(file, maxSize, quality).catch(() => file);
+}
