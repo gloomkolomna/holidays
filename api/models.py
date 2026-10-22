@@ -72,7 +72,7 @@ class HolidayCard(Base):
     __tablename__ = "holiday_cards"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    holiday_id = Column(Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False)
+    holiday_id = Column(Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False, index=True)
     category_id = Column(Integer, ForeignKey("holiday_categories.id", ondelete="CASCADE"), nullable=False)
     day = Column(String, nullable=True)
     title = Column(String, nullable=False, default="", server_default="")
@@ -94,7 +94,7 @@ class Task(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
     holiday_id = Column(Integer, ForeignKey("holidays.id", ondelete="CASCADE"), nullable=False)
-    card_id = Column(Integer, ForeignKey("holiday_cards.id", ondelete="CASCADE"), nullable=False)
+    card_id = Column(Integer, ForeignKey("holiday_cards.id", ondelete="CASCADE"), nullable=False, index=True)
     kind = Column(String, nullable=False, default="daily", server_default="daily")
     required_crosses = Column(Integer, nullable=False)
     status = Column(String, nullable=False, default="active", server_default="active")
@@ -113,7 +113,7 @@ class UserCard(Base):
     user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
     card_id = Column(Integer, ForeignKey("holiday_cards.id", ondelete="CASCADE"), nullable=False)
     source = Column(String, nullable=False, default="daily", server_default="daily")
-    earned_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
+    earned_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow, index=True)
 
     __table_args__ = (
         UniqueConstraint("user_id", "card_id", name="uq_usercard_user_card"),
@@ -124,7 +124,7 @@ class StitchReport(Base):
     __tablename__ = "stitch_reports"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False, index=True)
     task_id = Column(Integer, nullable=True)
     amount = Column(Integer, nullable=False)
     photo_before = Column(String, nullable=True)
@@ -165,7 +165,7 @@ class RewardCode(Base):
     __tablename__ = "reward_codes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    item_id = Column(Integer, ForeignKey("reward_items.id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("reward_items.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String, nullable=False)
     taken_by = Column(Integer, nullable=True)
     taken_at = Column(DateTime, nullable=True)
@@ -204,3 +204,7 @@ class Log(Base):
     user_id = Column(Integer, nullable=True)
     client_ip = Column(String, nullable=True)
     created_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow, index=True)
+
+    __table_args__ = (
+        Index("ix_logs_level_created_at", "level", "created_at"),
+    )
