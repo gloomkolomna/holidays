@@ -15,6 +15,7 @@ const HolidaysList = lazy(() => import('./pages/admin/HolidaysList'));
 const HolidayEdit = lazy(() => import('./pages/admin/HolidayEdit'));
 const AppearanceTab = lazy(() => import('./pages/admin/AppearanceTab'));
 const SettingsTab = lazy(() => import('./pages/admin/SettingsTab'));
+const InfoTab = lazy(() => import('./pages/admin/InfoTab'));
 const LogsTab = lazy(() => import('./pages/admin/LogsTab'));
 const RewardsTab = lazy(() => import('./pages/admin/RewardsTab'));
 const StatsTab = lazy(() => import('./pages/admin/StatsTab'));
@@ -107,6 +108,7 @@ export default function App() {
               <Route path="holidays/:id" element={<HolidayEdit />} />
               <Route path="appearance" element={<AppearanceTab />} />
               <Route path="settings" element={<SettingsTab />} />
+              <Route path="info" element={<InfoTab />} />
               <Route path="logs" element={<LogsTab />} />
               <Route path="rewards" element={<RewardsTab />} />
               <Route path="stats" element={<StatsTab />} />

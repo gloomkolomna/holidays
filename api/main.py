@@ -18,6 +18,7 @@ from routes.players import admin_router as admin_players_router
 from routes.appearance import router as appearance_router, admin_router as admin_appearance_router
 from routes.logs import admin_router as admin_logs_router
 from routes.settings import admin_router as admin_settings_router
+from routes.info import router as info_router, admin_router as admin_info_router
 
 init_db()
 
@@ -50,6 +51,8 @@ app.include_router(appearance_router)
 app.include_router(admin_appearance_router)
 app.include_router(admin_logs_router)
 app.include_router(admin_settings_router)
+app.include_router(info_router)
+app.include_router(admin_info_router)
 
 
 @app.get("/api/")

@@ -1,23 +1,42 @@
+import { useEffect, useState } from 'react';
+import { api, type InfoBlock } from '../api/endpoints';
+
 export default function Info() {
+  const [blocks, setBlocks] = useState<InfoBlock[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    api.info()
+      .then((d) => setBlocks(d.blocks))
+      .catch(() => setFailed(true));
+  }, []);
+
+  if (failed) {
+    return (
+      <div className="fm-rise">
+        <div className="fm-card">Не удалось загрузить информацию</div>
+      </div>
+    );
+  }
+
+  if (!blocks) {
+    return (
+      <div className="fm-rise" style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
+        <span className="fm-spinner" />
+      </div>
+    );
+  }
+
   return (
     <div className="fm-rise">
-      <div className="fm-card">
-        <h3>🧵 Пересчёт для полукреста</h3>
-        <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 6 }}>
-          Вышиваете полукрестом? Норма пересчитывается ×1,5:
+      {blocks.map((b, i) => (
+        <div key={i} className="fm-card" style={i > 0 ? { marginTop: 12 } : undefined}>
+          <h3>{b.title}</h3>
+          <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', lineHeight: 1.7, marginTop: 6 }}>
+            {b.text}
+          </div>
         </div>
-        <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginTop: 6 }}>
-          500 крестиков = 750 полукрестов<br />
-          400 крестиков = 600 полукрестов<br />
-          300 крестика = 450 полукрестов
-        </div>
-      </div>
-      <div className="fm-card" style={{ marginTop: 12 }}>
-        <h3>🔑 Кодовое слово</h3>
-        <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: 6 }}>
-          Кодовое слово — название карточки
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

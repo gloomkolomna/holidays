@@ -245,6 +245,11 @@ export interface PlayerReportEntry {
   holiday_title: string;
 }
 
+export interface InfoBlock {
+  title: string;
+  text: string;
+}
+
 export interface PlayerDetail {
   player: PlayerEntry;
   active_task: PlayerTaskEntry | null;
@@ -356,6 +361,14 @@ export const api = {
 
   myReports(): Promise<PlayerReportEntry[]> {
     return client.get('/game/reports/my').then((r) => r.data);
+  },
+
+  info(): Promise<{ blocks: InfoBlock[] }> {
+    return client.get('/info').then((r) => r.data);
+  },
+
+  adminSetInfo(blocks: InfoBlock[]): Promise<{ blocks: InfoBlock[] }> {
+    return client.put('/admin/info', { blocks }).then((r) => r.data);
   },
 
   adminStatsDaily(day?: string): Promise<DailyStats> {
