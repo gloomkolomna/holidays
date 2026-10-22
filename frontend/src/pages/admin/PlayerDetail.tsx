@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { api, type PlayerCardEntry, type PlayerDetail as PlayerDetailData, type PlayerTaskEntry } from '../../api/endpoints';
 import { mediaUrl } from '../../api/media';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 function fmtDateTime(iso: string | null): string {
   return iso ? new Date(iso + 'Z').toLocaleString('ru-RU') : '';
@@ -50,15 +51,24 @@ export default function PlayerDetail() {
   const [error, setError] = useState<string | null>(null);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
 
-  useEffect(() => {
-    setData(null);
-    setError(null);
+  const load = useCallback(() => {
     api.adminPlayer(Number(vkId))
-      .then(setData)
+      .then((d) => {
+        setData(d);
+        setError(null);
+      })
       .catch((e: any) => setError(e?.response?.data?.detail || 'Не удалось загрузить игрока'));
   }, [vkId]);
 
-  if (error) {
+  useEffect(() => {
+    setData(null);
+    setError(null);
+    load();
+  }, [load]);
+
+  const { refresh, label } = useAutoRefresh(load);
+
+  if (error && !data) {
     return (
       <div className="fm-rise">
         <div className="fm-card">
@@ -107,7 +117,11 @@ export default function PlayerDetail() {
       )}
 
       <div className="fm-card">
-        <Link className="fm-btn fm-btn-outline fm-btn-sm" to="/admin/players">← Игроки</Link>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Link className="fm-btn fm-btn-outline fm-btn-sm" to="/admin/players">← Игроки</Link>
+          <button className="fm-btn fm-btn-outline fm-btn-sm" onClick={refresh}>↻ Обновить</button>
+          {label && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{label}</span>}
+        </div>
         <h2 style={{ marginTop: 10 }}>{player.display_name}</h2>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
           <span className="fm-chip">id {player.vk_id}</span>
@@ -115,6 +129,9 @@ export default function PlayerDetail() {
           <span className="fm-chip">💎 {player.crystals}</span>
           <span className="fm-chip">карточек: {player.cards_total}</span>
         </div>
+        {error && (
+          <p style={{ color: 'var(--danger)', marginTop: 8, marginBottom: 0, fontSize: 13 }}>{error}</p>
+        )}
       </div>
 
       {task ? (

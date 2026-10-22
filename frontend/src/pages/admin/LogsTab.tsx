@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type LogEntry } from '../../api/endpoints';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const LEVEL_LABELS: Record<string, string> = {
   '': 'все',
@@ -29,6 +30,8 @@ export default function LogsTab() {
 
   useEffect(() => { load(level); }, [level, load]);
 
+  const { refresh, label } = useAutoRefresh(() => load(level));
+
   return (
     <>
       <div className="fm-card">
@@ -42,9 +45,12 @@ export default function LogsTab() {
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-          <button className="fm-btn fm-btn-outline" onClick={() => load(level)}>
+          <button className="fm-btn fm-btn-outline" onClick={refresh}>
             ↻ Обновить
           </button>
+          {label && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{label}</span>
+          )}
         </div>
       </div>
 

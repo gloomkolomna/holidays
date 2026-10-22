@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type PlayerEntry } from '../../api/endpoints';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 export default function PlayersTab() {
   const [players, setPlayers] = useState<PlayerEntry[]>([]);
@@ -25,6 +26,8 @@ export default function PlayersTab() {
     return () => clearTimeout(t);
   }, [load, search]);
 
+  const { refresh, label } = useAutoRefresh(() => load(search.trim()));
+
   return (
     <>
       <div className="fm-card">
@@ -32,13 +35,19 @@ export default function PlayersTab() {
         <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>
           Все игроки и их собранные коллекции. Имена подтягиваются из VK.
         </p>
-        <input
-          className="fm-input"
-          style={{ width: '100%', marginTop: 10 }}
-          placeholder="Поиск: имя, фамилия или id"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
+          <input
+            className="fm-input"
+            style={{ flex: 1, minWidth: 0 }}
+            placeholder="Поиск: имя, фамилия или id"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button className="fm-btn fm-btn-outline" onClick={refresh}>↻ Обновить</button>
+        </div>
+        {label && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>{label}</div>
+        )}
         {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
       </div>
 

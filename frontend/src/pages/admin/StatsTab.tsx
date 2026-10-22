@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type DailyStats } from '../../api/endpoints';
+import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 function yesterday(): string {
   const d = new Date(Date.now() - 24 * 3600 * 1000);
@@ -23,6 +24,8 @@ export default function StatsTab() {
 
   useEffect(() => { load(day); }, [day, load]);
 
+  const { refresh, label } = useAutoRefresh(() => load(day));
+
   return (
     <>
       <div className="fm-card">
@@ -32,7 +35,10 @@ export default function StatsTab() {
         </p>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <input className="fm-input" style={{ maxWidth: 180 }} type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-          <button className="fm-btn fm-btn-outline" onClick={() => load(day)}>↻ Обновить</button>
+          <button className="fm-btn fm-btn-outline" onClick={refresh}>↻ Обновить</button>
+          {label && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{label}</span>
+          )}
           <button className="fm-btn fm-btn-outline" onClick={() => setDay(yesterday())}>Вчера</button>
           <button className="fm-btn fm-btn-outline" onClick={() => setDay(new Date().toISOString().slice(0, 10))}>Сегодня</button>
         </div>
