@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from db import get_db
 from deps import get_current_user, require_role
-from models import Holiday, HolidayCard, HolidayCategory
+from models import CollectionReward, Holiday, HolidayCard, HolidayCategory, Task, UserCard
 from services.cards_grid import ensure_card_slots, holiday_days
 from services.msk_time import now_msk
 
@@ -203,6 +203,34 @@ def _get_category(db: Session, holiday_id: int, category_id: int) -> HolidayCate
     return cat
 
 
+def _has_player_data(query) -> bool:
+    return query.first() is not None
+
+
+def _holiday_has_player_data(db: Session, holiday: Holiday) -> bool:
+    card_ids = [c.id for cat in holiday.categories for c in cat.cards]
+    if card_ids and _has_player_data(db.query(UserCard.id).filter(UserCard.card_id.in_(card_ids))):
+        return True
+    if _has_player_data(db.query(Task.id).filter(Task.holiday_id == holiday.id)):
+        return True
+    return _has_player_data(db.query(CollectionReward.id).filter(CollectionReward.holiday_id == holiday.id))
+
+
+def _category_has_player_data(db: Session, cat: HolidayCategory) -> bool:
+    card_ids = [c.id for c in cat.cards]
+    if card_ids and _has_player_data(db.query(UserCard.id).filter(UserCard.card_id.in_(card_ids))):
+        return True
+    if card_ids and _has_player_data(db.query(Task.id).filter(Task.card_id.in_(card_ids))):
+        return True
+    return _has_player_data(db.query(CollectionReward.id).filter(CollectionReward.category_id == cat.id))
+
+
+def _card_has_player_data(db: Session, card: HolidayCard) -> bool:
+    if _has_player_data(db.query(UserCard.id).filter(UserCard.card_id == card.id)):
+        return True
+    return _has_player_data(db.query(Task.id).filter(Task.card_id == card.id))
+
+
 @router.get("", response_model=list[HolidayOut])
 def list_holidays(db: Session = Depends(get_db)):
     holidays = db.query(Holiday).order_by(Holiday.starts_at.desc()).all()
@@ -352,6 +380,11 @@ def admin_clear_holiday_audio(holiday_id: int, db: Session = Depends(get_db)):
 @admin_router.delete("/{holiday_id}")
 def admin_delete_holiday(holiday_id: int, db: Session = Depends(get_db)):
     holiday = _get_holiday(db, holiday_id)
+    if _holiday_has_player_data(db, holiday):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="По празднику есть данные игроков (коллекции, задания или награды) — удаление запрещено",
+        )
     db.delete(holiday)
     db.commit()
     return {"ok": True}
@@ -418,6 +451,11 @@ def admin_delete_card(holiday_id: int, card_id: int, db: Session = Depends(get_d
     card = _get_card(db, holiday_id, card_id)
     if card.day is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Слоты сетки дней удаляются сменой дат праздника")
+    if _card_has_player_data(db, card):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Карточку брали игроки — удаление запрещено",
+        )
     from services.uploads import remove_upload
 
     url = card.image_url
@@ -454,6 +492,11 @@ def admin_clear_category_trophy(holiday_id: int, category_id: int, db: Session =
 @admin_router.delete("/{holiday_id}/categories/{category_id}")
 def admin_delete_category(holiday_id: int, category_id: int, db: Session = Depends(get_db)):
     cat = _get_category(db, holiday_id, category_id)
+    if _category_has_player_data(db, cat):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="В категории есть данные игроков (коллекции, задания или награды) — удаление запрещено",
+        )
     from services.uploads import remove_upload
 
     urls = [c.image_url for c in cat.cards]

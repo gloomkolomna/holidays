@@ -3,7 +3,7 @@ import io
 
 from PIL import Image
 
-from models import HolidayCard
+from models import HolidayCard, Task, UserCard
 from services.msk_time import now_msk
 from tests.conftest import make_user_client
 
@@ -163,6 +163,43 @@ def test_delete_holiday(admin_client):
     hid = admin_client.post("/api/admin/holidays", json=_future_holiday_payload()).json()["id"]
     assert admin_client.delete(f"/api/admin/holidays/{hid}").status_code == 200
     assert admin_client.get(f"/api/admin/holidays/{hid}").status_code == 404
+
+
+def test_delete_holiday_with_player_data_forbidden(admin_client, db):
+    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    cat_id = _create_category(admin_client, hid, "Наряды", norm=500)
+    card_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["cards"][0]["id"]
+    db.add(UserCard(user_id=123, card_id=card_id))
+    db.commit()
+
+    assert admin_client.delete(f"/api/admin/holidays/{hid}").status_code == 409
+    assert admin_client.delete(f"/api/admin/holidays/{hid}/categories/{cat_id}").status_code == 409
+    assert admin_client.get(f"/api/admin/holidays/{hid}").status_code == 200
+
+
+def test_delete_category_with_task_forbidden(admin_client, db):
+    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    cat_id = _create_category(admin_client, hid, "Наряды", norm=500)
+    card_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["cards"][0]["id"]
+    db.add(Task(user_id=123, holiday_id=hid, card_id=card_id, required_crosses=500))
+    db.commit()
+
+    assert admin_client.delete(f"/api/admin/holidays/{hid}/categories/{cat_id}").status_code == 409
+    assert admin_client.delete(f"/api/admin/holidays/{hid}").status_code == 409
+    assert admin_client.get(f"/api/admin/holidays/{hid}").status_code == 200
+
+
+def test_delete_extra_card_with_user_card_forbidden(admin_client, db):
+    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    cat_id = _create_category(admin_client, hid, "Наряды", norm=500)
+    extra = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards", json={"category_id": cat_id, "title": "Бонусная"},
+    ).json()
+    db.add(UserCard(user_id=123, card_id=extra["id"]))
+    db.commit()
+
+    assert admin_client.delete(f"/api/admin/holidays/{hid}/cards/{extra['id']}").status_code == 409
+    assert admin_client.get(f"/api/admin/holidays/{hid}").status_code == 200
 
 
 def test_holiday_not_found(admin_client):
