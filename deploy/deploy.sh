@@ -361,7 +361,16 @@ if [ -d "$FRONTEND_DIR/dist/assets" ]; then
     cp -a "$FRONTEND_DIR/dist/assets" "$PREV_ASSETS_DIR"
 fi
 rm -rf "$FRONTEND_DIR/dist"
-npm install
+
+DEPS_CHANGED=1
+if [ -n "$PREV_GIT" ] && git -C "$APP_DIR" diff --quiet "$PREV_GIT" HEAD -- frontend/package.json frontend/package-lock.json 2>>"$LOG_FILE"; then
+    DEPS_CHANGED=0
+fi
+if [ "$DEPS_CHANGED" -eq 1 ]; then
+    npm install --no-audit --no-fund --prefer-offline
+else
+    log "Зависимости фронтенда не менялись — npm install пропущен."
+fi
 npm run build
 BUILD_RAN=1
 
