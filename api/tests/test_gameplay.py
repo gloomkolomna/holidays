@@ -384,3 +384,50 @@ def test_extra_cards_not_in_slider(admin_client):
     with make_user_client(123) as player:
         resp = player.post(f"/api/game/cards/{extra_id}/take")
     assert resp.status_code == 400
+
+
+def test_my_reports_requires_auth(client):
+    assert client.get("/api/game/reports/my").status_code == 401
+
+
+def test_my_reports_only_own(admin_client, db):
+    from models import StitchReport, User as U
+
+    hid, today, cards_by_day = _create_holiday_with_filled_days(admin_client)
+    first_card = cards_by_day[today]["Наряды"]
+
+    db.add(U(vk_id=124, role="player"))
+    task = Task(user_id=123, holiday_id=hid, card_id=first_card["id"], required_crosses=500)
+    db.add(task)
+    db.flush()
+    db.add(
+        StitchReport(
+            user_id=123,
+            task_id=task.id,
+            amount=520,
+            photo_before="/uploads/b.jpg",
+            photo_after="/uploads/a.jpg",
+            created_at=datetime.datetime(2026, 10, 21, 12, 0, 0),
+        )
+    )
+    db.add(
+        StitchReport(
+            user_id=124,
+            task_id=None,
+            amount=100,
+            created_at=datetime.datetime(2026, 10, 21, 13, 0, 0),
+        )
+    )
+    db.commit()
+
+    with make_user_client(123) as player:
+        resp = player.get("/api/game/reports/my")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["amount"] == 520
+    assert data[0]["photo_before"] == "/uploads/b.jpg"
+    assert data[0]["photo_after"] == "/uploads/a.jpg"
+    assert data[0]["card_title"] == first_card["title"]
+    assert data[0]["holiday_title"] == "Хеллоуин"
+    assert data[0]["created_at"] is not None

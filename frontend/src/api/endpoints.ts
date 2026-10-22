@@ -354,6 +354,10 @@ export const api = {
     return client.get(`/admin/players/${vkId}`).then((r) => r.data);
   },
 
+  myReports(): Promise<PlayerReportEntry[]> {
+    return client.get('/game/reports/my').then((r) => r.data);
+  },
+
   adminStatsDaily(day?: string): Promise<DailyStats> {
     return client.get('/admin/stats/daily', { params: day ? { day } : {} }).then((r) => r.data);
   },

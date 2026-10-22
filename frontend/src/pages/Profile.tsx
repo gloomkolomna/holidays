@@ -1,10 +1,18 @@
-import { useState } from 'react';
-import { api } from '../api/endpoints';
+import { useEffect, useState } from 'react';
+import { api, type PlayerReportEntry } from '../api/endpoints';
+import ReportsSection from '../components/ReportsSection';
 import { useSession } from '../context/SessionContext';
 
 export default function Profile() {
   const { user, refresh } = useSession();
   const [music, setMusic] = useState(user ? user.music_enabled !== false : true);
+  const [reports, setReports] = useState<PlayerReportEntry[]>([]);
+
+  useEffect(() => {
+    if (user) {
+      api.myReports().then(setReports).catch(() => setReports([]));
+    }
+  }, [user]);
 
   if (!user) return null;
 
@@ -46,6 +54,7 @@ export default function Profile() {
           <span>🎵 Музыка праздника {music ? 'включена' : 'выключена'}</span>
         </label>
       </div>
+      <ReportsSection reports={reports} title="📋 Мои отчёты" />
     </div>
   );
 }

@@ -340,3 +340,38 @@ def get_collection(
         total=total,
         categories=categories_out,
     )
+
+
+class MyReportOut(BaseModel):
+    id: int
+    amount: int
+    photo_before: str | None
+    photo_after: str | None
+    created_at: str | None
+    card_title: str
+    holiday_title: str
+
+
+@router.get("/reports/my", response_model=list[MyReportOut])
+def my_reports(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    holiday_titles = {h.id: h.title for h in db.query(Holiday.id, Holiday.title).all()}
+    rows = (
+        db.query(StitchReport, Task, HolidayCard)
+        .outerjoin(Task, StitchReport.task_id == Task.id)
+        .outerjoin(HolidayCard, Task.card_id == HolidayCard.id)
+        .filter(StitchReport.user_id == user.vk_id)
+        .order_by(StitchReport.created_at.desc())
+        .all()
+    )
+    return [
+        MyReportOut(
+            id=report.id,
+            amount=report.amount,
+            photo_before=report.photo_before,
+            photo_after=report.photo_after,
+            created_at=report.created_at.isoformat() if report.created_at else None,
+            card_title=card.title if card else "",
+            holiday_title=holiday_titles.get(card.holiday_id, "") if card else "",
+        )
+        for report, task, card in rows
+    ]

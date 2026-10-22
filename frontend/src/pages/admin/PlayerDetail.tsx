@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
-import { api, type PlayerCardEntry, type PlayerDetail as PlayerDetailData, type PlayerReportEntry, type PlayerTaskEntry } from '../../api/endpoints';
+import { api, type PlayerCardEntry, type PlayerDetail as PlayerDetailData, type PlayerTaskEntry } from '../../api/endpoints';
 import { mediaUrl } from '../../api/media';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
+import ReportsSection from '../../components/ReportsSection';
 
 function fmtDateTime(iso: string | null): string {
   return iso ? new Date(iso + 'Z').toLocaleString('ru-RU') : '';
@@ -46,37 +47,6 @@ function TaskCard({ task, onZoom }: { task: PlayerTaskEntry; onZoom: (url: strin
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ReportPhoto({ url, label, onZoom }: { url: string | null; label: string; onZoom: (u: string) => void }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      {url ? (
-        <img
-          src={mediaUrl(url)}
-          alt={label}
-          style={{ width: 96, height: 96, borderRadius: 8, cursor: 'zoom-in', objectFit: 'cover', display: 'block' }}
-          onClick={() => onZoom(url)}
-        />
-      ) : (
-        <div
-          style={{
-            width: 96,
-            height: 96,
-            borderRadius: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--surface-strong)',
-            border: '1px dashed var(--border)',
-          }}
-        >
-          📷
-        </div>
-      )}
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -179,32 +149,7 @@ export default function PlayerDetail() {
         </div>
       )}
 
-      <div className="fm-card" style={{ marginTop: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0 }}>📋 Отчёты</h3>
-          <span className="fm-chip">всего: {reports.length}</span>
-        </div>
-        {reports.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>Отчётов пока нет</p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-            {reports.map((r: PlayerReportEntry) => (
-              <div key={r.id} className="fm-card" style={{ padding: 10 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{fmtDateTime(r.created_at)}</span>
-                  <span style={{ fontSize: 14 }}>{r.card_title || '—'}</span>
-                  {r.holiday_title && <span className="fm-chip">{r.holiday_title}</span>}
-                  <span className="fm-chip" style={{ marginLeft: 'auto' }}>✖️ {r.amount}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                  <ReportPhoto url={r.photo_before} label="до" onZoom={setZoomImg} />
-                  <ReportPhoto url={r.photo_after} label="после" onZoom={setZoomImg} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <ReportsSection reports={reports} />
 
       <div className="fm-card" style={{ marginTop: 12 }}>
         <h3>🃏 Коллекция</h3>
