@@ -30,6 +30,8 @@ export default function Home() {
   const [amount, setAmount] = useState('');
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
   const [afterFile, setAfterFile] = useState<File | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [sagaFile, setSagaFile] = useState<File | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -73,11 +75,21 @@ export default function Home() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.reportTask(state.active_task.id, Number(amount), beforeFile, afterFile, mode);
+      const res = await api.reportTask(
+        state.active_task.id,
+        Number(amount),
+        beforeFile,
+        afterFile,
+        mode,
+        previewFile,
+        sagaFile,
+      );
       if (res.collected) setJustCollected(state.active_task.card.title);
       setAmount('');
       setBeforeFile(null);
       setAfterFile(null);
+      setPreviewFile(null);
+      setSagaFile(null);
       await load();
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Не удалось отправить отчёт');
@@ -238,6 +250,26 @@ export default function Home() {
               </label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
+                🖼 Превью (необязательно){previewFile ? ' ✓' : ''}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => { setPreviewFile(e.target.files?.[0] || null); e.target.value = ''; }}
+                />
+              </label>
+              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
+                📖 Сага (необязательно){sagaFile ? ' ✓' : ''}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => { setSagaFile(e.target.files?.[0] || null); e.target.value = ''; }}
+                />
+              </label>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button
                 className="fm-btn"
                 disabled={busy || !beforeFile || !afterFile || !amount}
@@ -254,7 +286,7 @@ export default function Home() {
               </button>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-              Фото «до» и «после» обязательны. «Штраф» закрывает задание двойной нормой.
+              Фото «до» и «после» обязательны, «превью» и «сага» — по желанию. «Штраф» закрывает задание двойной нормой.
             </p>
             <button
               className="fm-btn fm-btn-outline"
@@ -268,6 +300,8 @@ export default function Home() {
                   setAmount('');
                   setBeforeFile(null);
                   setAfterFile(null);
+                  setPreviewFile(null);
+                  setSagaFile(null);
                   await load();
                 } catch (e: any) {
                   setError(e?.response?.data?.detail || 'Не удалось отказаться от задания');

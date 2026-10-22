@@ -57,6 +57,8 @@ class PlayerReportOut(BaseModel):
     amount: int
     photo_before: str | None
     photo_after: str | None
+    photo_preview: str | None
+    photo_saga: str | None
     created_at: str | None
     card_title: str
     holiday_title: str
@@ -200,6 +202,8 @@ def get_player(vk_id: int, db: Session = Depends(get_db)):
             amount=report.amount,
             photo_before=report.photo_before,
             photo_after=report.photo_after,
+            photo_preview=report.photo_preview,
+            photo_saga=report.photo_saga,
             created_at=report.created_at.isoformat() if report.created_at else None,
             card_title=card.title if card else "",
             holiday_title=holiday_titles.get(card.holiday_id, "") if card else "",

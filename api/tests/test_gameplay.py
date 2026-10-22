@@ -122,15 +122,57 @@ def test_take_unknown_card_404(admin_client):
     assert resp.status_code == 404
 
 
-def _report(player, task_id, amount, mode="norm"):
+def _report(player, task_id, amount, mode="norm", extra=None):
+    files = {
+        "photo_before": ("b.png", _png_bytes((10, 10, 10)), "image/png"),
+        "photo_after": ("a.png", _png_bytes((20, 200, 20)), "image/png"),
+    }
+    if extra:
+        files.update(extra)
     return player.post(
         f"/api/game/tasks/{task_id}/report",
         data={"amount": str(amount), "mode": mode},
-        files={
-            "photo_before": ("b.png", _png_bytes((10, 10, 10)), "image/png"),
-            "photo_after": ("a.png", _png_bytes((20, 200, 20)), "image/png"),
-        },
+        files=files,
     )
+
+
+def test_report_with_optional_photos(admin_client, uploads_tmp):
+    hid, today, cards = _create_holiday_with_filled_days(admin_client)
+    with make_user_client(123) as player:
+        task = player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").json()
+        resp = _report(
+            player,
+            task["id"],
+            amount=500,
+            extra={
+                "photo_preview": ("p.png", _png_bytes((200, 10, 10)), "image/png"),
+                "photo_saga": ("s.png", _png_bytes((10, 10, 200)), "image/png"),
+            },
+        )
+        assert resp.status_code == 200
+
+        reports = player.get("/api/game/reports/my").json()
+        assert len(reports) == 1
+        assert reports[0]["photo_before"]
+        assert reports[0]["photo_after"]
+        assert reports[0]["photo_preview"]
+        assert reports[0]["photo_saga"]
+
+    detail = admin_client.get("/api/admin/players/123").json()
+    assert detail["reports"][0]["photo_preview"]
+    assert detail["reports"][0]["photo_saga"]
+
+
+def test_report_without_optional_photos(admin_client, uploads_tmp):
+    hid, today, cards = _create_holiday_with_filled_days(admin_client)
+    with make_user_client(123) as player:
+        task = player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").json()
+        resp = _report(player, task["id"], amount=500)
+        assert resp.status_code == 200
+
+        reports = player.get("/api/game/reports/my").json()
+        assert reports[0]["photo_preview"] is None
+        assert reports[0]["photo_saga"] is None
 
 
 def test_abandon_and_take_other(admin_client):

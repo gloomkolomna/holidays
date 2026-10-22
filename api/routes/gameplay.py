@@ -217,6 +217,8 @@ def report_task(
     mode: str = Form("norm"),
     photo_before: UploadFile = File(...),
     photo_after: UploadFile = File(...),
+    photo_preview: UploadFile | None = File(None),
+    photo_saga: UploadFile | None = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -252,6 +254,16 @@ def report_task(
 
     url_before = save_upload(photo_before, prefix=f"report_{user.vk_id}_before", max_size=1280)
     url_after = save_upload(photo_after, prefix=f"report_{user.vk_id}_after", max_size=1280)
+    url_preview = (
+        save_upload(photo_preview, prefix=f"report_{user.vk_id}_preview", max_size=1280)
+        if photo_preview and photo_preview.filename
+        else None
+    )
+    url_saga = (
+        save_upload(photo_saga, prefix=f"report_{user.vk_id}_saga", max_size=1280)
+        if photo_saga and photo_saga.filename
+        else None
+    )
 
     report = StitchReport(
         user_id=user.vk_id,
@@ -259,6 +271,8 @@ def report_task(
         amount=amount,
         photo_before=url_before,
         photo_after=url_after,
+        photo_preview=url_preview,
+        photo_saga=url_saga,
     )
     db.add(report)
 
@@ -347,6 +361,8 @@ class MyReportOut(BaseModel):
     amount: int
     photo_before: str | None
     photo_after: str | None
+    photo_preview: str | None
+    photo_saga: str | None
     created_at: str | None
     card_title: str
     holiday_title: str
@@ -369,6 +385,8 @@ def my_reports(user: User = Depends(get_current_user), db: Session = Depends(get
             amount=report.amount,
             photo_before=report.photo_before,
             photo_after=report.photo_after,
+            photo_preview=report.photo_preview,
+            photo_saga=report.photo_saga,
             created_at=report.created_at.isoformat() if report.created_at else None,
             card_title=card.title if card else "",
             holiday_title=holiday_titles.get(card.holiday_id, "") if card else "",

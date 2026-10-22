@@ -240,6 +240,8 @@ export interface PlayerReportEntry {
   amount: number;
   photo_before: string | null;
   photo_after: string | null;
+  photo_preview: string | null;
+  photo_saga: string | null;
   created_at: string | null;
   card_title: string;
   holiday_title: string;
@@ -449,13 +451,21 @@ export const api = {
     before: File,
     after: File,
     mode: 'norm' | 'penalty' = 'norm',
+    preview?: File | null,
+    saga?: File | null,
   ): Promise<{ ok: boolean; card_id: number; collected: boolean; mode: string }> {
-    return Promise.all([compressImage(before), compressImage(after)]).then(([b, a]) => {
+    const compresses: Promise<File>[] = [compressImage(before), compressImage(after)];
+    if (preview) compresses.push(compressImage(preview));
+    if (saga) compresses.push(compressImage(saga));
+    return Promise.all(compresses).then((files) => {
+      const [b, a, p, s] = files;
       const form = new FormData();
       form.append('amount', String(amount));
       form.append('mode', mode);
       form.append('photo_before', b);
       form.append('photo_after', a);
+      if (p) form.append('photo_preview', p);
+      if (s) form.append('photo_saga', s);
       return client
         .post(`/game/tasks/${taskId}/report`, form, {
           headers: { 'Content-Type': 'multipart/form-data' },

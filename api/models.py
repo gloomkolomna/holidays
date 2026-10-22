@@ -129,6 +129,8 @@ class StitchReport(Base):
     amount = Column(Integer, nullable=False)
     photo_before = Column(String, nullable=True)
     photo_after = Column(String, nullable=True)
+    photo_preview = Column(String, nullable=True)
+    photo_saga = Column(String, nullable=True)
     created_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow, index=True)
 
 

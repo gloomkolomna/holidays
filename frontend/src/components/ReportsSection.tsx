@@ -79,9 +79,11 @@ export default function ReportsSection({ reports, title = '📋 Отчёты' }:
                   {r.holiday_title && <span className="fm-chip">{r.holiday_title}</span>}
                   <span className="fm-chip" style={{ marginLeft: 'auto' }}>✖️ {r.amount}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
                   <ReportPhoto url={r.photo_before} label="до" onZoom={setZoomImg} />
                   <ReportPhoto url={r.photo_after} label="после" onZoom={setZoomImg} />
+                  {r.photo_preview && <ReportPhoto url={r.photo_preview} label="превью" onZoom={setZoomImg} />}
+                  {r.photo_saga && <ReportPhoto url={r.photo_saga} label="сага" onZoom={setZoomImg} />}
                 </div>
               </div>
             ))}
