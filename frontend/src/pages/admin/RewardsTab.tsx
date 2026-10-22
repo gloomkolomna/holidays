@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type RewardCodeEntry, type RewardItem } from '../../api/endpoints';
 import { mediaUrl } from '../../api/media';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 export default function RewardsTab() {
   const [items, setItems] = useState<RewardItem[]>([]);
@@ -11,6 +12,7 @@ export default function RewardsTab() {
   const [busy, setBusy] = useState(false);
   const [codesDraft, setCodesDraft] = useState<Record<number, string>>({});
   const [codesList, setCodesList] = useState<Record<number, RewardCodeEntry[]>>({});
+  const [askRemove, setAskRemove] = useState<RewardItem | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -41,8 +43,10 @@ export default function RewardsTab() {
     }
   }
 
-  async function removeItem(id: number, itemTitle: string) {
-    if (!window.confirm(`Удалить товар «${itemTitle}» вместе с кодами?`)) return;
+  async function removeItem() {
+    if (!askRemove) return;
+    const { id } = askRemove;
+    setAskRemove(null);
     await api.adminDeleteRewardItem(id);
     await load();
   }
@@ -105,7 +109,7 @@ export default function RewardsTab() {
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(item.id, f); e.target.value = ''; }} />
               </label>
               <button className="fm-btn fm-btn-xs fm-btn-outline" onClick={() => openCodes(item.id)}>📜 Коды</button>
-              <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => removeItem(item.id, item.title)}>🗑</button>
+              <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => setAskRemove(item)}>🗑</button>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
@@ -135,6 +139,15 @@ export default function RewardsTab() {
           )}
         </div>
       ))}
+
+      {askRemove && (
+        <ConfirmDialog
+          title={`Удалить товар «${askRemove.title}» вместе с кодами?`}
+          confirmLabel="Удалить"
+          onConfirm={removeItem}
+          onCancel={() => setAskRemove(null)}
+        />
+      )}
     </>
   );
 }

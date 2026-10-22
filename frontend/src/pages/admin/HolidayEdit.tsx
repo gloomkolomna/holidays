@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, type HolidayCard, type HolidayCategoryDetail, type HolidayDetail, type HolidayInput } from '../../api/endpoints';
 import { mediaUrl } from '../../api/media';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { PALETTES } from '../../theme';
 
 function toLocalInput(iso: string): string {
@@ -101,6 +102,8 @@ export default function HolidayEdit() {
   const [editExtra, setEditExtra] = useState<number | null>(null);
   const [savedFlash, setSavedFlash] = useState<number | null>(null);
   const [editCat, setEditCat] = useState<{ id: number; title: string; norm: string } | null>(null);
+  const [askRemoveCat, setAskRemoveCat] = useState<{ id: number; title: string } | null>(null);
+  const [askRemoveCard, setAskRemoveCard] = useState<{ id: number; title: string } | null>(null);
 
   const loadDetail = useCallback(async (hid: number) => {
     try {
@@ -187,10 +190,11 @@ export default function HolidayEdit() {
     }
   }
 
-  async function removeCategory(categoryId: number, title: string) {
-    if (!holidayId) return;
-    if (!window.confirm(`Удалить категорию «${title}» вместе с её карточками?`)) return;
-    await api.adminDeleteCategory(holidayId, categoryId);
+  async function removeCategory() {
+    if (!holidayId || !askRemoveCat) return;
+    const { id } = askRemoveCat;
+    setAskRemoveCat(null);
+    await api.adminDeleteCategory(holidayId, id);
     await loadDetail(holidayId);
   }
 
@@ -304,10 +308,11 @@ export default function HolidayEdit() {
     await loadDetail(holidayId);
   }
 
-  async function removeExtraCard(cardId: number, title: string) {
-    if (!holidayId) return;
-    if (!window.confirm(`Удалить карточку «${title}»?`)) return;
-    await api.adminDeleteCard(holidayId, cardId);
+  async function removeExtraCard() {
+    if (!holidayId || !askRemoveCard) return;
+    const { id } = askRemoveCard;
+    setAskRemoveCard(null);
+    await api.adminDeleteCard(holidayId, id);
     await loadDetail(holidayId);
   }
 
@@ -391,7 +396,7 @@ export default function HolidayEdit() {
         <button
           className="fm-btn fm-btn-xs fm-btn-danger"
           style={{ marginLeft: 'auto' }}
-          onClick={() => removeCategory(cat.id, cat.title)}
+          onClick={() => setAskRemoveCat({ id: cat.id, title: cat.title })}
         >
           🗑
         </button>
@@ -724,7 +729,7 @@ export default function HolidayEdit() {
                           >
                             ✏️
                           </button>
-                          <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => removeExtraCard(card.id, card.title)}>🗑</button>
+                          <button className="fm-btn fm-btn-xs fm-btn-danger" onClick={() => setAskRemoveCard({ id: card.id, title: card.title })}>🗑</button>
                         </div>
                       </>
                     )}
@@ -858,6 +863,23 @@ export default function HolidayEdit() {
             </div>
           )}
         </>
+      )}
+
+      {askRemoveCat && (
+        <ConfirmDialog
+          title={`Удалить категорию «${askRemoveCat.title}» вместе с её карточками?`}
+          confirmLabel="Удалить"
+          onConfirm={removeCategory}
+          onCancel={() => setAskRemoveCat(null)}
+        />
+      )}
+      {askRemoveCard && (
+        <ConfirmDialog
+          title={`Удалить карточку «${askRemoveCard.title}»?`}
+          confirmLabel="Удалить"
+          onConfirm={removeExtraCard}
+          onCancel={() => setAskRemoveCard(null)}
+        />
       )}
     </>
   );

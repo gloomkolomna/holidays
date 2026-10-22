@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Appearance } from '../../api/endpoints';
 import { mediaUrl } from '../../api/media';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 function AppearanceImageRow({
   title,
@@ -16,15 +17,16 @@ function AppearanceImageRow({
   onChanged: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [askClear, setAskClear] = useState(false);
 
   async function clear() {
-    if (!window.confirm(`Убрать картинку «${title}»?`)) return;
     setBusy(true);
     try {
       await api.adminClearAppearance(kind);
       onChanged();
     } finally {
       setBusy(false);
+      setAskClear(false);
     }
   }
 
@@ -73,9 +75,19 @@ function AppearanceImageRow({
         />
       </label>
       {url && (
-        <button className="fm-btn fm-btn-outline" onClick={clear} disabled={busy}>
+        <button className="fm-btn fm-btn-outline" onClick={() => setAskClear(true)} disabled={busy}>
           Убрать
         </button>
+      )}
+
+      {askClear && (
+        <ConfirmDialog
+          title={`Убрать картинку «${title}»?`}
+          confirmLabel="Убрать"
+          busy={busy}
+          onConfirm={clear}
+          onCancel={() => setAskClear(false)}
+        />
       )}
     </div>
   );

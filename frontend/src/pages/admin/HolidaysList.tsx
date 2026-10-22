@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, type Holiday } from '../../api/endpoints';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 const STATUS_LABELS: Record<string, string> = {
   upcoming: '⏳ будущий',
@@ -12,6 +13,8 @@ export default function HolidaysList() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [askRemove, setAskRemove] = useState<Holiday | null>(null);
+  const [removing, setRemoving] = useState(false);
   const navigate = useNavigate();
 
   const load = useCallback(async () => {
@@ -27,13 +30,18 @@ export default function HolidaysList() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function remove(id: number) {
-    if (!window.confirm('Удалить праздник вместе с карточками?')) return;
+  async function remove() {
+    if (!askRemove) return;
+    setRemoving(true);
     try {
-      await api.adminDeleteHoliday(id);
+      await api.adminDeleteHoliday(askRemove.id);
+      setAskRemove(null);
       await load();
     } catch (e: any) {
+      setAskRemove(null);
       setError(e?.response?.data?.detail || 'Не удалось удалить');
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -76,13 +84,23 @@ export default function HolidaysList() {
                 <button className="fm-btn fm-btn-sm fm-btn-outline" onClick={() => navigate(`/admin/holidays/${h.id}`)}>
                   ✏️ Изменить
                 </button>
-                <button className="fm-btn fm-btn-sm fm-btn-danger" onClick={() => remove(h.id)}>
+                <button className="fm-btn fm-btn-sm fm-btn-danger" onClick={() => setAskRemove(h)}>
                   🗑
                 </button>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {askRemove && (
+        <ConfirmDialog
+          title="Удалить праздник вместе с карточками?"
+          confirmLabel="Удалить"
+          busy={removing}
+          onConfirm={remove}
+          onCancel={() => setAskRemove(null)}
+        />
       )}
     </>
   );

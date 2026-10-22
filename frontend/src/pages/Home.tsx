@@ -6,6 +6,7 @@ import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import { api, type GameState, type HolidayCard, type HolidayDetail } from '../api/endpoints';
 import { mediaUrl } from '../api/media';
+import ConfirmDialog from '../components/ConfirmDialog';
 import MusicPlayer from '../components/MusicPlayer';
 import ParticlesBackground from '../components/ParticlesBackground';
 import { useSession } from '../context/SessionContext';
@@ -148,38 +149,15 @@ export default function Home() {
     document.body,
   );
 
-  const abandonPortal = askAbandon && task && createPortal(
-    <div
-      onClick={() => { if (!busy) setAskAbandon(false); }}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        background: 'rgba(0,0,0,0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-      }}
-    >
-      <div
-        className="fm-card fm-pop"
-        onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 360, width: '100%', textAlign: 'center' }}
-      >
-        <h3 style={{ marginTop: 0 }}>Отказаться от задания?</h3>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 0 }}>{abandonText}</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
-          <button className="fm-btn fm-btn-outline" disabled={busy} onClick={() => setAskAbandon(false)}>
-            Отмена
-          </button>
-          <button className="fm-btn fm-btn-danger" disabled={busy} onClick={abandon}>
-            {busy ? <span className="fm-spinner" /> : 'Отказаться'}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+  const abandonPortal = askAbandon && task && (
+    <ConfirmDialog
+      title="Отказаться от задания?"
+      text={abandonText}
+      confirmLabel="Отказаться"
+      busy={busy}
+      onConfirm={abandon}
+      onCancel={() => setAskAbandon(false)}
+    />
   );
 
   const taskBlock = task ? (
