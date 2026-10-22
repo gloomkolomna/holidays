@@ -64,7 +64,7 @@ class HolidayCategory(Base):
     holiday = relationship("Holiday", back_populates="categories")
     cards = relationship(
         "HolidayCard", back_populates="category", cascade="all, delete-orphan",
-        order_by="HolidayCard.day",
+        order_by="nullslast(HolidayCard.day)",
     )
 
 

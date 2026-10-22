@@ -428,6 +428,24 @@ def test_extra_cards_not_in_slider(admin_client):
     assert resp.status_code == 400
 
 
+def test_collection_order_extras_last(admin_client):
+    from tests.conftest import make_user_client
+
+    hid, today, cards_by_day = _create_holiday_with_filled_days(admin_client, categories=(("Наряды", 500),))
+    cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
+    admin_client.post(f"/api/admin/holidays/{hid}/extra-cards", json={"category_id": cat_id, "title": "Магазинная"})
+
+    with make_user_client(123) as player:
+        data = player.get("/api/game/collection", params={"holiday_id": hid}).json()
+
+    entries = data["categories"][0]["cards"]
+    titles = [e["card"]["title"] for e in entries]
+    days = [e["card"]["day"] for e in entries if e["card"]["day"]]
+    assert titles[-1] == "Магазинная"
+    assert days == sorted(days)
+    assert entries[-1]["card"]["day"] is None
+
+
 def test_my_reports_requires_auth(client):
     assert client.get("/api/game/reports/my").status_code == 401
 

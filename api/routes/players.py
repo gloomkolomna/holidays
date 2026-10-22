@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
+from sqlalchemy import nullslast
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -170,7 +171,7 @@ def get_player(vk_id: int, db: Session = Depends(get_db)):
         .join(HolidayCard, UserCard.card_id == HolidayCard.id)
         .join(HolidayCategory, HolidayCard.category_id == HolidayCategory.id)
         .filter(UserCard.user_id == vk_id)
-        .order_by(HolidayCard.holiday_id, HolidayCategory.id, HolidayCard.day)
+        .order_by(HolidayCard.holiday_id, HolidayCategory.id, nullslast(HolidayCard.day))
         .all()
     )
     cards_out = [
