@@ -263,6 +263,25 @@ def test_report_after_holiday_closed(admin_client, db, uploads_tmp):
     assert db.query(UserCard).filter(UserCard.user_id == 123).count() == 1
 
 
+def test_state_returns_active_task_after_holiday_closed(admin_client, db):
+    hid, today, cards = _create_holiday_with_filled_days(admin_client)
+    with make_user_client(123) as player:
+        task = player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").json()
+
+    from models import Holiday
+
+    holiday = db.query(Holiday).filter(Holiday.id == hid).first()
+    holiday.ends_at = now_msk().replace(tzinfo=None) - datetime.timedelta(minutes=1)
+    db.commit()
+
+    with make_user_client(123) as player:
+        state = player.get("/api/game/state").json()
+    assert state["holiday_id"] is None
+    assert state["today_cards"] == []
+    assert state["active_task"]["id"] == task["id"]
+    assert state["active_task"]["card"]["id"] == cards[today]["Наряды"]["id"]
+
+
 def test_next_day_shows_next_cards(admin_client, monkeypatch):
     hid, today, cards = _create_holiday_with_filled_days(admin_client)
     tomorrow = (now_msk().date() + datetime.timedelta(days=1)).isoformat()

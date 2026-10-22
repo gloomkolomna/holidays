@@ -89,8 +89,29 @@ def _card_out(card: HolidayCard) -> CardOut:
     )
 
 
+def _task_out(db: Session, task: Task | None) -> TaskOut | None:
+    if task is None:
+        return None
+    card = db.query(HolidayCard).filter(HolidayCard.id == task.card_id).first()
+    if card is None:
+        return None
+    return TaskOut(
+        id=task.id,
+        kind=task.kind,
+        required_crosses=task.required_crosses,
+        card=_card_out(card),
+    )
+
+
 @router.get("/state", response_model=GameStateOut)
 def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    task = (
+        db.query(Task)
+        .filter(Task.user_id == user.vk_id, Task.status == "active")
+        .first()
+    )
+    active_task_out = _task_out(db, task)
+
     holiday = get_active_holiday(db)
     if holiday is None:
         return GameStateOut(
@@ -98,17 +119,12 @@ def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_
             holiday_title=None,
             day=today_msk().isoformat(),
             today_cards=[],
-            active_task=None,
+            active_task=active_task_out,
             collected_count=0,
             cards_total=0,
         )
 
     collected = collected_card_ids(db, user.vk_id)
-    task = (
-        db.query(Task)
-        .filter(Task.user_id == user.vk_id, Task.status == "active")
-        .first()
-    )
     active_card_ids = {task.card_id} if task else set()
 
     today_out = [
@@ -119,17 +135,6 @@ def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_
         )
         for card in todays_cards(holiday)
     ]
-
-    active_task_out: TaskOut | None = None
-    if task is not None:
-        card = db.query(HolidayCard).filter(HolidayCard.id == task.card_id).first()
-        if card is not None:
-            active_task_out = TaskOut(
-                id=task.id,
-                kind=task.kind,
-                required_crosses=task.required_crosses,
-                card=_card_out(card),
-            )
 
     all_slots = all_cards(holiday)
     return GameStateOut(

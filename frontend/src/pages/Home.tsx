@@ -101,6 +101,159 @@ export default function Home() {
     }
   }
 
+  const task = state?.active_task ?? null;
+  const holidayActive = state?.holiday_id != null;
+  const abandonConfirm = holidayActive
+    ? 'Отказаться от задания? Карточка не попадёт в коллекцию, но её можно будет принять снова.'
+    : 'Отказаться от задания? Карточка не попадёт в коллекцию — добрать её можно будет в Магазине по выходным.';
+
+  const zoomPortal = zoomImg && createPortal(
+    <div
+      onClick={() => setZoomImg(null)}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 100,
+        background: 'rgba(0,0,0,0.88)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'zoom-out',
+      }}
+    >
+      <img src={mediaUrl(zoomImg)} alt="" style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 10 }} />
+    </div>,
+    document.body,
+  );
+
+  const taskBlock = task ? (
+    <div className="fm-card" style={{ marginTop: 12 }}>
+      <h3>Активное задание</h3>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        {task.card.image_url ? (
+          <img
+            src={mediaUrl(task.card.image_url)}
+            alt=""
+            style={{ width: 72, height: 72, borderRadius: 10, objectFit: 'cover', cursor: 'zoom-in' }}
+            onClick={() => setZoomImg(task.card.image_url)}
+          />
+        ) : (
+          <div style={{ width: 72, height: 72, borderRadius: 10, background: 'var(--surface-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>🎴</div>
+        )}
+        <div>
+          <div style={{ fontSize: 18 }}>{task.card.title}</div>
+          {task.card.task_text && (
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 2 }}>
+              {task.card.task_text}
+            </div>
+          )}
+          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
+            Вышейте {task.required_crosses} крестиков и приложите фото
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+        <input
+          className="fm-input"
+          type="number"
+          min={1}
+          placeholder={`Крестиков (норма ${task.required_crosses})`}
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
+            📷 Фото «до»{beforeFile ? ' ✓' : ''}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => { setBeforeFile(e.target.files?.[0] || null); e.target.value = ''; }}
+            />
+          </label>
+          <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
+            📷 Фото «после»{afterFile ? ' ✓' : ''}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => { setAfterFile(e.target.files?.[0] || null); e.target.value = ''; }}
+            />
+          </label>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
+            🖼 Превью{previewFile ? ' ✓' : ''}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => { setPreviewFile(e.target.files?.[0] || null); e.target.value = ''; }}
+            />
+          </label>
+          <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
+            📖 Сага{sagaFile ? ' ✓' : ''}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => { setSagaFile(e.target.files?.[0] || null); e.target.value = ''; }}
+            />
+          </label>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <button
+            className="fm-btn"
+            disabled={busy || !beforeFile || !afterFile || !amount}
+            onClick={() => submitReport('norm')}
+          >
+            {busy ? <span className="fm-spinner" /> : `✅ Норма · ${task.required_crosses}`}
+          </button>
+          <button
+            className="fm-btn fm-btn-outline"
+            disabled={busy || !beforeFile || !afterFile || !amount}
+            onClick={() => submitReport('penalty')}
+          >
+            ⚠️ Штраф · {task.required_crosses * 2}
+          </button>
+        </div>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+          Фото «до» и «после» обязательны, «превью» и «сага» — по желанию. «Штраф» закрывает задание двойной нормой.
+        </p>
+        <button
+          className="fm-btn fm-btn-outline"
+          disabled={busy}
+          onClick={async () => {
+            if (!window.confirm(abandonConfirm)) return;
+            setBusy(true);
+            setError(null);
+            try {
+              await api.abandonTask(task.id);
+              setAmount('');
+              setBeforeFile(null);
+              setAfterFile(null);
+              setPreviewFile(null);
+              setSagaFile(null);
+              await load();
+            } catch (e: any) {
+              setError(e?.response?.data?.detail || 'Не удалось отказаться от задания');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Отказаться от задания
+        </button>
+        {holidayActive && (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+            Пока задание не сдано, другую карточку принять нельзя — или откажитесь от него.
+          </p>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   if (!loaded) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
@@ -109,15 +262,37 @@ export default function Home() {
     );
   }
 
-  if (!state || state.holiday_id == null) {
+  if (!state || !holidayActive) {
     return (
       <div className="fm-rise">
-        <div className="fm-card">
-          <h2>🎉 Скоро праздник!</h2>
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Активного праздника сейчас нет. Когда он начнётся, здесь появятся
-            карточки заданий на каждый день.
-          </p>
+        {zoomPortal}
+        {justCollected && (
+          <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center', borderColor: 'var(--success)' }}>
+            <div style={{ fontSize: 30 }}>🃏✨</div>
+            Карточка «{justCollected}» в коллекции!
+          </div>
+        )}
+        {error && (
+          <div className="fm-card" style={{ marginBottom: 12, color: 'var(--danger)' }}>{error}</div>
+        )}
+        {taskBlock}
+        <div className="fm-card" style={task ? { marginTop: 12 } : undefined}>
+          {task ? (
+            <>
+              <h2>🎉 Праздник завершён</h2>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Праздник закончился, но взятое задание ещё действует — сдайте его или откажитесь от него выше.
+              </p>
+            </>
+          ) : (
+            <>
+              <h2>🎉 Скоро праздник!</h2>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Активного праздника сейчас нет. Когда он начнётся, здесь появятся
+                карточки заданий на каждый день.
+              </p>
+            </>
+          )}
         </div>
         <div className="fm-card" style={{ marginTop: 12 }}>
           <h3>Как это работает</h3>
@@ -132,7 +307,6 @@ export default function Home() {
     );
   }
 
-  const task = state.active_task;
   const openCards = state.today_cards;
 
   return (
@@ -150,24 +324,7 @@ export default function Home() {
         <MusicPlayer src={mediaUrl(holiday.audio_url)} />
       )}
 
-      {zoomImg && createPortal(
-        <div
-          onClick={() => setZoomImg(null)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            background: 'rgba(0,0,0,0.88)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'zoom-out',
-          }}
-        >
-          <img src={mediaUrl(zoomImg)} alt="" style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 10 }} />
-        </div>,
-        document.body,
-      )}
+      {zoomPortal}
 
       {justCollected && (
         <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center', borderColor: 'var(--success)' }}>
@@ -196,131 +353,7 @@ export default function Home() {
         <div className="fm-card" style={{ marginTop: 12, color: 'var(--danger)' }}>{error}</div>
       )}
 
-      {task ? (
-        <div className="fm-card" style={{ marginTop: 12 }}>
-          <h3>Активное задание</h3>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            {task.card.image_url ? (
-              <img
-                src={mediaUrl(task.card.image_url)}
-                alt=""
-                style={{ width: 72, height: 72, borderRadius: 10, objectFit: 'cover', cursor: 'zoom-in' }}
-                onClick={() => setZoomImg(task.card.image_url)}
-              />
-            ) : (
-              <div style={{ width: 72, height: 72, borderRadius: 10, background: 'var(--surface-strong)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30 }}>🎴</div>
-            )}
-            <div>
-              <div style={{ fontSize: 18 }}>{task.card.title}</div>
-              {task.card.task_text && (
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 2 }}>
-                  {task.card.task_text}
-                </div>
-              )}
-              <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
-                Вышейте {task.required_crosses} крестиков и приложите фото
-              </div>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-            <input
-              className="fm-input"
-              type="number"
-              min={1}
-              placeholder={`Крестиков (норма ${task.required_crosses})`}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                📷 Фото «до»{beforeFile ? ' ✓' : ''}
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => { setBeforeFile(e.target.files?.[0] || null); e.target.value = ''; }}
-                />
-              </label>
-              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                📷 Фото «после»{afterFile ? ' ✓' : ''}
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => { setAfterFile(e.target.files?.[0] || null); e.target.value = ''; }}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                🖼 Превью{previewFile ? ' ✓' : ''}
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => { setPreviewFile(e.target.files?.[0] || null); e.target.value = ''; }}
-                />
-              </label>
-              <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                📖 Сага{sagaFile ? ' ✓' : ''}
-                <input
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => { setSagaFile(e.target.files?.[0] || null); e.target.value = ''; }}
-                />
-              </label>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button
-                className="fm-btn"
-                disabled={busy || !beforeFile || !afterFile || !amount}
-                onClick={() => submitReport('norm')}
-              >
-                {busy ? <span className="fm-spinner" /> : `✅ Норма · ${task.required_crosses}`}
-              </button>
-              <button
-                className="fm-btn fm-btn-outline"
-                disabled={busy || !beforeFile || !afterFile || !amount}
-                onClick={() => submitReport('penalty')}
-              >
-                ⚠️ Штраф · {task.required_crosses * 2}
-              </button>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-              Фото «до» и «после» обязательны, «превью» и «сага» — по желанию. «Штраф» закрывает задание двойной нормой.
-            </p>
-            <button
-              className="fm-btn fm-btn-outline"
-              disabled={busy}
-              onClick={async () => {
-                if (!window.confirm('Отказаться от задания? Карточка не попадёт в коллекцию, но её можно будет принять снова.')) return;
-                setBusy(true);
-                setError(null);
-                try {
-                  await api.abandonTask(task.id);
-                  setAmount('');
-                  setBeforeFile(null);
-                  setAfterFile(null);
-                  setPreviewFile(null);
-                  setSagaFile(null);
-                  await load();
-                } catch (e: any) {
-                  setError(e?.response?.data?.detail || 'Не удалось отказаться от задания');
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              Отказаться от задания
-            </button>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-              Пока задание не сдано, другую карточку принять нельзя — или откажитесь от него.
-            </p>
-          </div>
-        </div>
-      ) : null}
+      {taskBlock}
 
       {openCards.length > 0 && (
         <div style={{ marginTop: 12 }}>
