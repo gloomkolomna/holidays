@@ -1,5 +1,4 @@
 graphify-out/
-docs/
 
 # ===== Локальные рабочие ассеты (исходники для админки) =====
 img/
@@ -61,6 +60,5 @@ desktop.ini
 /.playwright-mcp
 /.pptx_work
 
-/docs/
 /.opencode/
 /.swarm/
