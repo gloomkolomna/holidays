@@ -14,6 +14,7 @@ const BASE_TABS: Tab[] = [
   { to: '/collection', label: '🃏 Коллекция' },
   { to: '/shop', label: '🛒 Магазин' },
   { to: '/rewards', label: '🏆 Награды' },
+  { to: '/info', label: 'ℹ️ Информация' },
   { to: '/profile', label: '👤 Профиль' },
 ];
 

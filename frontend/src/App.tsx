@@ -9,6 +9,7 @@ import { applyPalette } from './theme';
 
 const Home = lazy(() => import('./pages/Home'));
 const Profile = lazy(() => import('./pages/Profile'));
+const Info = lazy(() => import('./pages/Info'));
 const Admin = lazy(() => import('./pages/admin/Admin'));
 const HolidaysList = lazy(() => import('./pages/admin/HolidaysList'));
 const HolidayEdit = lazy(() => import('./pages/admin/HolidayEdit'));
@@ -95,6 +96,7 @@ export default function App() {
             <Route path="/shop" element={<Shop />} />
             <Route path="/rewards" element={<Rewards />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/info" element={<Info />} />
             <Route
               path="/admin"
               element={user.role === 'admin' ? <Admin /> : <Navigate to="/" replace />}
