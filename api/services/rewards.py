@@ -51,5 +51,5 @@ def ensure_collection_reward(db: Session, user_id: int, category_id: int) -> boo
     user = db.query(User).filter(User.vk_id == user_id).first()
     if user is not None:
         user.crystals = (user.crystals or 0) + 1
-    db.commit()
+    db.flush()
     return True

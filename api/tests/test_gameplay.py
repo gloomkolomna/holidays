@@ -83,6 +83,18 @@ def test_take_second_while_active_conflict(admin_client):
     assert resp.status_code == 409
 
 
+def test_take_race_returns_409_not_500(admin_client, monkeypatch):
+    import routes.gameplay as gameplay_module
+
+    hid, today, cards = _create_holiday_with_filled_days(admin_client)
+    with make_user_client(123) as player:
+        assert player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").status_code == 200
+        monkeypatch.setattr(gameplay_module, "has_active_task", lambda db, uid: False)
+        resp = player.post(f"/api/game/cards/{cards[today]['Декор']['id']}/take")
+    assert resp.status_code == 409
+    assert "новое взять нельзя" in resp.json()["detail"]
+
+
 def test_take_past_day_card_rejected(admin_client, db):
     hid, today, cards = _create_holiday_with_filled_days(admin_client)
     yesterday = (now_msk().date() - datetime.timedelta(days=1)).isoformat()
@@ -295,7 +307,7 @@ def test_next_day_shows_next_cards(admin_client, monkeypatch):
     assert titles == {f"Наряды-{tomorrow}", f"Декор-{tomorrow}"}
 
 
-def test_collection_counts_all_slots_grouped_by_category(admin_client, db):
+def test_collection_totals_count_filled_cards_only(admin_client, db):
     hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
     cat1 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Наряды", "norm_crosses": 500}).json()
     cat2 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Декор", "norm_crosses": 900}).json()
@@ -309,7 +321,7 @@ def test_collection_counts_all_slots_grouped_by_category(admin_client, db):
         resp = player.get(f"/api/game/collection?holiday_id={hid}")
     data = resp.json()
 
-    assert data["total"] == 12
+    assert data["total"] == 1
     assert data["collected"] == 0
     assert len(data["categories"]) == 2
     titles = {c["title"] for c in data["categories"]}
@@ -317,7 +329,7 @@ def test_collection_counts_all_slots_grouped_by_category(admin_client, db):
     cat_cards = data["categories"][0]["cards"]
     assert len(cat_cards) == 6
     assert any(c["card"]["title"] == "Единственная" for c in cat_cards)
-    assert state["cards_total"] == 12
+    assert state["cards_total"] == 1
     complete_by_id = {c["id"]: c["complete"] for c in data["categories"]}
     assert complete_by_id == {cat1["id"]: False, cat2["id"]: False}
 
@@ -328,7 +340,7 @@ def test_collection_counts_all_slots_grouped_by_category(admin_client, db):
         state2 = player.get("/api/game/state").json()
     assert after["collected"] == 1
     assert state2["collected_count"] == 1
-    assert state2["cards_total"] == 12
+    assert state2["cards_total"] == 1
     complete_by_id = {c["id"]: c["complete"] for c in after["categories"]}
     assert complete_by_id == {cat1["id"]: True, cat2["id"]: False}
 
@@ -375,6 +387,15 @@ def test_report_invalid_mode(admin_client, uploads_tmp):
         task = player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").json()
         resp = _report(player, task["id"], amount=500, mode="cheat")
     assert resp.status_code == 400
+
+
+def test_report_amount_too_large(admin_client, uploads_tmp):
+    hid, today, cards = _create_holiday_with_filled_days(admin_client)
+    with make_user_client(123) as player:
+        task = player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").json()
+        resp = _report(player, task["id"], amount=1_000_001)
+    assert resp.status_code == 400
+    assert "максимум" in resp.json()["detail"]
 
 
 def test_report_accepts_heic(admin_client, db, uploads_tmp):

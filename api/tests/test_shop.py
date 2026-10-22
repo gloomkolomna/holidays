@@ -194,6 +194,44 @@ def test_penalty_task_reportable_and_collects_card(admin_client, db, uploads_tmp
     assert uc.source == "penalty"
 
 
+def test_penalty_task_cannot_be_abandoned(admin_client, db):
+    hid, card_ids = _finished_holiday(admin_client)
+    with make_user_client(123) as player:
+        task = player.post("/api/shop/take", json={"card_id": card_ids[0]}).json()
+        resp = player.post(f"/api/game/tasks/{task['task_id']}/abandon")
+    assert resp.status_code == 409
+    assert "нельзя отказаться" in resp.json()["detail"]
+
+    task_row = db.query(Task).filter(Task.user_id == 123).first()
+    assert task_row.status == "active"
+
+
+def test_penalty_task_rejects_penalty_mode(admin_client, uploads_tmp):
+    hid, card_ids = _finished_holiday(admin_client)
+    with make_user_client(123) as player:
+        task = player.post("/api/shop/take", json={"card_id": card_ids[0]}).json()
+        resp = player.post(
+            f"/api/game/tasks/{task['task_id']}/report",
+            data={"amount": "2000", "mode": "penalty"},
+            files={
+                "photo_before": ("b.png", _png_bytes(), "image/png"),
+                "photo_after": ("a.png", _png_bytes(), "image/png"),
+            },
+        )
+    assert resp.status_code == 400
+    assert "норме" in resp.json()["detail"]
+
+
+def test_shop_take_race_returns_409_not_500(admin_client, monkeypatch):
+    hid, card_ids = _finished_holiday(admin_client, cards=("Тыква", "Кот"))
+    with make_user_client(123) as player:
+        assert player.post("/api/shop/take", json={"card_id": card_ids[0]}).status_code == 200
+        monkeypatch.setattr(shop_module, "has_active_task", lambda db, uid: False)
+        resp = player.post("/api/shop/take", json={"card_id": card_ids[1]})
+    assert resp.status_code == 409
+    assert "новое взять нельзя" in resp.json()["detail"]
+
+
 def test_shop_lists_extra_cards(admin_client, db):
     hid, card_ids = _finished_holiday(admin_client, cards=("Тыква",))
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]

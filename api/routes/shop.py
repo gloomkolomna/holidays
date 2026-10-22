@@ -3,6 +3,7 @@ import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -148,7 +149,14 @@ def take_card(data: TakeIn, user: User = Depends(get_current_user), db: Session 
         required_crosses=PENALTY_CROSSES,
     )
     db.add(task)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Сначала сдайте текущее задание — новое взять нельзя",
+        )
     db.refresh(task)
 
     return {

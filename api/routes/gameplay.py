@@ -3,6 +3,7 @@ import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -20,6 +21,8 @@ from services.msk_time import today_msk
 router = APIRouter(prefix="/api/game", tags=["game"])
 
 DUP_WINDOW_SECONDS = 10
+
+MAX_REPORT_CROSSES = 1_000_000
 
 
 class CardOut(BaseModel):
@@ -137,14 +140,15 @@ def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_
     ]
 
     all_slots = all_cards(holiday)
+    filled_ids = {c.id for c in all_slots if c.title.strip()}
     return GameStateOut(
         holiday_id=holiday.id,
         holiday_title=holiday.title,
         day=today_msk().isoformat(),
         today_cards=today_out,
         active_task=active_task_out,
-        collected_count=len(collected & {c.id for c in all_slots}),
-        cards_total=len(all_slots),
+        collected_count=len(collected & filled_ids),
+        cards_total=len(filled_ids),
     )
 
 
@@ -182,7 +186,14 @@ def take_card(card_id: int, user: User = Depends(get_current_user), db: Session 
         required_crosses=card.category.norm_crosses,
     )
     db.add(task)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Сначала сдайте текущее задание — новое взять нельзя",
+        )
     db.refresh(task)
 
     return TaskOut(
@@ -209,6 +220,11 @@ def abandon_task(
     task = _get_own_task(db, user, task_id)
     if task.status != "active":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Задание уже закрыто")
+    if task.kind == "penalty":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="От выкупленного задания нельзя отказаться — сдайте его (1000 крестиков)",
+        )
     task.status = "abandoned"
     task.done_at = datetime.datetime.utcnow()
     db.commit()
@@ -232,8 +248,18 @@ def report_task(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Задание уже закрыто")
     if mode not in ("norm", "penalty"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Неверный режим сдачи: норма или штраф")
+    if task.kind == "penalty" and mode == "penalty":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Выкупленное задание сдаётся по норме (1000 крестиков) — режим «Штраф» к нему не применяется",
+        )
     if amount <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Число крестиков должно быть больше нуля")
+    if amount > MAX_REPORT_CROSSES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Слишком большое число крестиков (максимум {MAX_REPORT_CROSSES})",
+        )
 
     required = task.required_crosses * (2 if mode == "penalty" else 1)
     if amount < required:
@@ -287,7 +313,6 @@ def report_task(
 
     task.status = "done"
     task.done_at = datetime.datetime.utcnow()
-    db.commit()
 
     if already is None:
         from services.rewards import ensure_collection_reward
@@ -298,7 +323,10 @@ def report_task(
             .scalar()
         )
         if category_id is not None:
+            db.flush()
             ensure_collection_reward(db, user.vk_id, category_id)
+
+    db.commit()
 
     return {
         "ok": True,
@@ -337,9 +365,10 @@ def get_collection(
     collected_count = 0
     for cat in holiday.categories:
         entries = [_entry(c) for c in cat.cards]
-        total += len(entries)
-        collected_count += sum(1 for e in entries if e.collected)
-        filled_ids = {c.id for c in cat.cards if c.title.strip()}
+        filled_cards = [c for c in cat.cards if c.title.strip()]
+        total += len(filled_cards)
+        collected_count += sum(1 for c in filled_cards if c.id in owned)
+        filled_ids = {c.id for c in filled_cards}
         complete = bool(filled_ids) and filled_ids.issubset(owned.keys())
         categories_out.append(
             CollectionCategoryOut(
