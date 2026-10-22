@@ -24,6 +24,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [justCollected, setJustCollected] = useState<string | null>(null);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
+  const [askAbandon, setAskAbandon] = useState(false);
   const swiperRef = useRef<SwiperClass | null>(null);
   const [nav, setNav] = useState({ idx: 0, beg: true, end: false });
 
@@ -103,9 +104,30 @@ export default function Home() {
 
   const task = state?.active_task ?? null;
   const holidayActive = state?.holiday_id != null;
-  const abandonConfirm = holidayActive
-    ? 'Отказаться от задания? Карточка не попадёт в коллекцию, но её можно будет принять снова.'
-    : 'Отказаться от задания? Карточка не попадёт в коллекцию — добрать её можно будет в Магазине по выходным.';
+  const abandonText = holidayActive
+    ? 'Карточка не попадёт в коллекцию, но её можно будет принять снова.'
+    : 'Карточка не попадёт в коллекцию — добрать её можно будет в Магазине по выходным.';
+
+  async function abandon() {
+    if (!task) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.abandonTask(task.id);
+      setAskAbandon(false);
+      setAmount('');
+      setBeforeFile(null);
+      setAfterFile(null);
+      setPreviewFile(null);
+      setSagaFile(null);
+      await load();
+    } catch (e: any) {
+      setAskAbandon(false);
+      setError(e?.response?.data?.detail || 'Не удалось отказаться от задания');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const zoomPortal = zoomImg && createPortal(
     <div
@@ -122,6 +144,40 @@ export default function Home() {
       }}
     >
       <img src={mediaUrl(zoomImg)} alt="" style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 10 }} />
+    </div>,
+    document.body,
+  );
+
+  const abandonPortal = askAbandon && task && createPortal(
+    <div
+      onClick={() => { if (!busy) setAskAbandon(false); }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 100,
+        background: 'rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+      }}
+    >
+      <div
+        className="fm-card fm-pop"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: 360, width: '100%', textAlign: 'center' }}
+      >
+        <h3 style={{ marginTop: 0 }}>Отказаться от задания?</h3>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: 0 }}>{abandonText}</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
+          <button className="fm-btn fm-btn-outline" disabled={busy} onClick={() => setAskAbandon(false)}>
+            Отмена
+          </button>
+          <button className="fm-btn fm-btn-danger" disabled={busy} onClick={abandon}>
+            {busy ? <span className="fm-spinner" /> : 'Отказаться'}
+          </button>
+        </div>
+      </div>
     </div>,
     document.body,
   );
@@ -224,24 +280,7 @@ export default function Home() {
         <button
           className="fm-btn fm-btn-outline"
           disabled={busy}
-          onClick={async () => {
-            if (!window.confirm(abandonConfirm)) return;
-            setBusy(true);
-            setError(null);
-            try {
-              await api.abandonTask(task.id);
-              setAmount('');
-              setBeforeFile(null);
-              setAfterFile(null);
-              setPreviewFile(null);
-              setSagaFile(null);
-              await load();
-            } catch (e: any) {
-              setError(e?.response?.data?.detail || 'Не удалось отказаться от задания');
-            } finally {
-              setBusy(false);
-            }
-          }}
+          onClick={() => setAskAbandon(true)}
         >
           Отказаться от задания
         </button>
@@ -266,6 +305,7 @@ export default function Home() {
     return (
       <div className="fm-rise">
         {zoomPortal}
+        {abandonPortal}
         {justCollected && (
           <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center', borderColor: 'var(--success)' }}>
             <div style={{ fontSize: 30 }}>🃏✨</div>
@@ -325,6 +365,7 @@ export default function Home() {
       )}
 
       {zoomPortal}
+      {abandonPortal}
 
       {justCollected && (
         <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center', borderColor: 'var(--success)' }}>
