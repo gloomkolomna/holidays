@@ -18,6 +18,7 @@ const LogsTab = lazy(() => import('./pages/admin/LogsTab'));
 const RewardsTab = lazy(() => import('./pages/admin/RewardsTab'));
 const StatsTab = lazy(() => import('./pages/admin/StatsTab'));
 const PlayersTab = lazy(() => import('./pages/admin/PlayersTab'));
+const PlayerDetail = lazy(() => import('./pages/admin/PlayerDetail'));
 const Rewards = lazy(() => import('./pages/Rewards'));
 const Collection = lazy(() => import('./pages/Collection'));
 const Shop = lazy(() => import('./pages/Shop'));
@@ -108,6 +109,7 @@ export default function App() {
               <Route path="rewards" element={<RewardsTab />} />
               <Route path="stats" element={<StatsTab />} />
               <Route path="players" element={<PlayersTab />} />
+              <Route path="players/:vkId" element={<PlayerDetail />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

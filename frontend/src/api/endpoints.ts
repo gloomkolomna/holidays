@@ -211,6 +211,36 @@ export interface PlayerEntry {
   collections: PlayerCollectionEntry[];
 }
 
+export interface PlayerTaskEntry {
+  id: number;
+  kind: string;
+  required_crosses: number;
+  taken_at: string | null;
+  holiday_title: string;
+  card_title: string;
+  card_task_text: string | null;
+  card_image_url: string | null;
+  card_day: string | null;
+}
+
+export interface PlayerCardEntry {
+  card_id: number;
+  title: string;
+  image_url: string | null;
+  day: string | null;
+  category_title: string;
+  holiday_id: number;
+  holiday_title: string;
+  source: string;
+  earned_at: string | null;
+}
+
+export interface PlayerDetail {
+  player: PlayerEntry;
+  active_task: PlayerTaskEntry | null;
+  cards: PlayerCardEntry[];
+}
+
 export interface DailyStats {
   day: string;
   total_cards: number;
@@ -305,8 +335,12 @@ export const api = {
     return client.delete(`/admin/holidays/${holidayId}/categories/${categoryId}/trophy-image`).then(() => undefined);
   },
 
-  adminPlayers(): Promise<PlayerEntry[]> {
-    return client.get('/admin/players').then((r) => r.data);
+  adminPlayers(search?: string): Promise<PlayerEntry[]> {
+    return client.get('/admin/players', { params: search ? { search } : {} }).then((r) => r.data);
+  },
+
+  adminPlayer(vkId: number): Promise<PlayerDetail> {
+    return client.get(`/admin/players/${vkId}`).then((r) => r.data);
   },
 
   adminStatsDaily(day?: string): Promise<DailyStats> {
