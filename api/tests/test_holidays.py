@@ -44,6 +44,17 @@ def _png_bytes(color=(200, 30, 30)) -> bytes:
     return buf.getvalue()
 
 
+def _huge_png_bytes(width: int, height: int) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr) + chunk(b"IEND", b"")
+
+
 def _create_category(admin_client, holiday_id: int, title: str = "Тыквы", norm: int = 500) -> int:
     resp = admin_client.post(
         f"/api/admin/holidays/{holiday_id}/categories",
@@ -200,6 +211,26 @@ def test_delete_extra_card_with_user_card_forbidden(admin_client, db):
 
     assert admin_client.delete(f"/api/admin/holidays/{hid}/cards/{extra['id']}").status_code == 409
     assert admin_client.get(f"/api/admin/holidays/{hid}").status_code == 200
+
+
+def test_upload_pixel_bomb_rejected(admin_client, uploads_tmp):
+    hid = admin_client.post("/api/admin/holidays", json=_future_holiday_payload()).json()["id"]
+    resp = admin_client.post(
+        f"/api/admin/holidays/{hid}/bg-image",
+        files={"file": ("bomb.png", _huge_png_bytes(20000, 20000), "image/png")},
+    )
+    assert resp.status_code == 400
+    assert "слишком большое" in resp.json()["detail"]
+
+
+def test_upload_over_pixel_limit_rejected(admin_client, uploads_tmp):
+    hid = admin_client.post("/api/admin/holidays", json=_future_holiday_payload()).json()["id"]
+    resp = admin_client.post(
+        f"/api/admin/holidays/{hid}/bg-image",
+        files={"file": ("big.png", _huge_png_bytes(8000, 8000), "image/png")},
+    )
+    assert resp.status_code == 400
+    assert "слишком большое" in resp.json()["detail"]
 
 
 def test_holiday_not_found(admin_client):

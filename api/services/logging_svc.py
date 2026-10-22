@@ -3,6 +3,7 @@ import datetime
 import json
 from typing import Any, Optional
 
+import config
 from db import SessionLocal
 from models import Log
 
@@ -39,6 +40,7 @@ def record_log(
                 details=_dump_details(details), user_id=user_id, client_ip=client_ip,
             ))
             db.commit()
+            maybe_cleanup(db, config.LOG_RETENTION_DAYS)
         finally:
             db.close()
     except Exception:

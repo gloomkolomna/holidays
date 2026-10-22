@@ -14,6 +14,15 @@ try:
 except ImportError:
     pass
 
+try:
+    from PIL import Image as _PILImage
+
+    _PILImage.MAX_IMAGE_PIXELS = 40_000_000
+except ImportError:
+    pass
+
+MAX_IMAGE_PIXELS = 40_000_000
+
 
 def _get_s3():
     if not config.S3_ENABLED:
@@ -40,20 +49,39 @@ def _read_with_limit(upload: UploadFile) -> bytes:
     return bytes(buf)
 
 
-def _process(buf: bytes, max_size: int | None) -> tuple[bytes, bool]:
-    if max_size is None:
-        return buf, True
+def _open_image(buf: bytes):
     from PIL import Image
 
     try:
         img = Image.open(io.BytesIO(buf))
-        img.load()
+    except Image.DecompressionBombError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Изображение слишком большое по разрешению")
     except (OSError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Не удалось прочитать изображение: файл повреждён или формат не поддерживается. "
                    "Пересохраните фото как JPG или PNG и попробуйте снова",
         )
+    if img.width * img.height > MAX_IMAGE_PIXELS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Изображение слишком большое по разрешению")
+    try:
+        img.load()
+    except Image.DecompressionBombError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Изображение слишком большое по разрешению")
+    except (OSError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Не удалось прочитать изображение: файл повреждён или формат не поддерживается. "
+                   "Пересохраните фото как JPG или PNG и попробуйте снова",
+        )
+    return img
+
+
+def _process(buf: bytes, max_size: int | None) -> tuple[bytes, bool]:
+    if max_size is None:
+        return buf, True
+
+    img = _open_image(buf)
 
     has_alpha = img.mode in ("RGBA", "LA", "PA") or (img.mode == "P" and "transparency" in img.info)
 
@@ -193,16 +221,7 @@ def save_silhouette_upload(upload: UploadFile, prefix: str) -> str:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл должен быть изображением")
     buf = _read_raw(upload, config.UPLOAD_MAX_BYTES, "Файл")
 
-    from PIL import Image
-
-    try:
-        img = Image.open(io.BytesIO(buf))
-        img.load()
-    except (OSError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Не удалось прочитать изображение: файл повреждён или формат не поддерживается",
-        )
+    img = _open_image(buf)
 
     longest = max(img.size)
     if longest > SILHOUETTE_MAX_SIZE:

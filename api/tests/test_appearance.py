@@ -105,6 +105,49 @@ def test_admin_logs_skip_401_and_info(raw_client, db):
     assert all(r.level != "info" for r in rows)
 
 
+def test_auth_logs_do_not_leak_sign(raw_client, db):
+    from models import Log
+
+    resp = raw_client.post("/api/auth/session", json={"params": "not-a-dict", "sign": "SECRET-SIGN-123"})
+    assert resp.status_code == 422
+
+    rows = db.query(Log).filter(Log.path == "/api/auth/session").all()
+    assert rows
+    for row in rows:
+        assert "SECRET-SIGN-123" not in (row.message or "")
+        assert "SECRET-SIGN-123" not in (row.details or "")
+
+
+def test_cleanup_old_logs_removes_expired(db):
+    import datetime
+
+    from models import Log
+    from services.logging_svc import cleanup_old_logs
+
+    old = Log(source="server", level="warn", message="old", created_at=datetime.datetime.utcnow() - datetime.timedelta(days=40))
+    db.add(old)
+    db.commit()
+    old_id = old.id
+
+    deleted = cleanup_old_logs(db, 30)
+    assert deleted >= 1
+    assert db.query(Log).filter(Log.id == old_id).count() == 0
+
+
+def test_gate_misconfigured_flag(monkeypatch):
+    import config
+    from services.vk_group_member import gate_misconfigured
+
+    monkeypatch.setattr(config, "MEMBER_GATE_ENABLED", True)
+    monkeypatch.setattr(config, "VK_SERVICE_TOKEN", "")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 0)
+    assert gate_misconfigured() is True
+
+    monkeypatch.setattr(config, "VK_SERVICE_TOKEN", "token")
+    monkeypatch.setattr(config, "VK_GROUP_ID", 123)
+    assert gate_misconfigured() is False
+
+
 def test_admin_logs_lists_entries(admin_client):
     from tests.conftest import make_user_client
 

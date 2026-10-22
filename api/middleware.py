@@ -2,6 +2,7 @@ from __future__ import annotations
 import json
 import traceback
 
+from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -41,14 +42,31 @@ def _extract_vk_id_from_body(body: bytes) -> int | None:
         return None
 
 
-def _extract_detail(raw: bytes) -> tuple[str | None, dict]:
+def _detail_message(detail) -> str | None:
+    if isinstance(detail, str):
+        return detail[:MAX_BODY_LOG] or None
+    if isinstance(detail, list):
+        msgs = [d.get("msg") for d in detail if isinstance(d, dict) and isinstance(d.get("msg"), str)]
+        return "; ".join(msgs)[:MAX_BODY_LOG] or None
+    if isinstance(detail, dict):
+        for key in ("message", "code"):
+            value = detail.get(key)
+            if isinstance(value, str) and value:
+                return value[:MAX_BODY_LOG]
+    return None
+
+
+def _extract_detail(raw: bytes, redact: bool = False) -> tuple[str | None, dict]:
     text = raw.decode("utf-8", errors="replace").strip()
-    body_preview = text[:MAX_BODY_LOG] if text else None
+    body_preview = None if redact else (text[:MAX_BODY_LOG] if text else None)
     message: str | None = None
     if text:
         try:
             payload = json.loads(text)
-            if isinstance(payload, dict) and "detail" in payload:
+            if redact:
+                detail = payload.get("detail") if isinstance(payload, dict) else None
+                message = _detail_message(detail)
+            elif isinstance(payload, dict) and "detail" in payload:
                 detail = payload["detail"]
                 if isinstance(detail, str):
                     message = detail[:MAX_BODY_LOG] or None
@@ -57,7 +75,7 @@ def _extract_detail(raw: bytes) -> tuple[str | None, dict]:
             elif payload is not None:
                 message = json.dumps(payload, ensure_ascii=False)[:MAX_BODY_LOG] or None
         except Exception:
-            message = body_preview
+            message = None if redact else body_preview
     details = {"response_body": body_preview} if body_preview else {}
     return message, details
 
@@ -98,7 +116,8 @@ async def log_failed_requests(request: Request, call_next):
         response = await call_next(request)
     except Exception:
         if should_log:
-            record_log(
+            await run_in_threadpool(
+                record_log,
                 source="server", level="error", event="exception",
                 method=request.method, path=path, message="Unhandled exception",
                 details={"traceback": traceback.format_exc()},
@@ -111,7 +130,7 @@ async def log_failed_requests(request: Request, call_next):
         if status_code >= 400 and status_code != 401:
             try:
                 raw = await _read_body(response)
-                message, details = _extract_detail(raw)
+                message, details = _extract_detail(raw, redact=path.startswith("/api/auth"))
             except Exception:
                 raw = b""
                 message, details = None, {}
@@ -126,7 +145,8 @@ async def log_failed_requests(request: Request, call_next):
                 media_type=response.media_type,
             )
             level = "error" if status_code >= 500 else "warn"
-            record_log(
+            await run_in_threadpool(
+                record_log,
                 source="server", level=level, event="http_request",
                 method=request.method, path=path, status_code=status_code,
                 message=message, details=details or None,

@@ -22,6 +22,15 @@ from routes.info import router as info_router, admin_router as admin_info_router
 
 init_db()
 
+from services.vk_group_member import gate_misconfigured
+
+if gate_misconfigured():
+    print(
+        "WARNING: MEMBER_GATE_ENABLED включён, но VK_SERVICE_TOKEN/VK_GROUP_ID не заданы — "
+        "гейт подписки фактически отключён (fail-open)",
+        flush=True,
+    )
+
 
 app = FastAPI(title="Holidays API")
 

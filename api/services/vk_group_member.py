@@ -10,6 +10,10 @@ VK_API_URL = "https://api.vk.com/method/groups.isMember"
 VK_API_VERSION = "5.199"
 
 
+def gate_misconfigured() -> bool:
+    return config.MEMBER_GATE_ENABLED and not (config.VK_SERVICE_TOKEN and config.VK_GROUP_ID)
+
+
 def fetch_is_member(vk_id: int) -> bool | None:
     """Спрашивает VK API, подписан ли игрок на группу.
 
