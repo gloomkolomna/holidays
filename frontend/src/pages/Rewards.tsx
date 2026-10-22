@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type Rewards } from '../api/endpoints';
+import { errorMessage } from '../api/errors';
 import { mediaUrl } from '../api/media';
 import { useSession } from '../context/SessionContext';
 
@@ -34,7 +35,7 @@ export default function RewardsPage() {
       await load();
       await refresh();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось купить');
+      setError(errorMessage(e, 'Не удалось купить'));
     } finally {
       setBusy(false);
     }

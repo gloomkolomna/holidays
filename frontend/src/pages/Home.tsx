@@ -5,6 +5,7 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import type { Swiper as SwiperClass } from 'swiper';
 import 'swiper/css';
 import { api, type GameState, type HolidayCard, type HolidayDetail } from '../api/endpoints';
+import { errorMessage } from '../api/errors';
 import { mediaUrl } from '../api/media';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MusicPlayer from '../components/MusicPlayer';
@@ -66,7 +67,7 @@ export default function Home() {
       await api.takeCard(cardId);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось принять карточку');
+      setError(errorMessage(e, 'Не удалось принять карточку'));
     } finally {
       setBusy(false);
     }
@@ -94,9 +95,7 @@ export default function Home() {
       setSagaFile(null);
       await load();
     } catch (e: any) {
-      const detail = e?.response?.data?.detail;
-      if (detail) setError(String(detail));
-      else if (e?.response) setError('Не удалось отправить отчёт — попробуйте ещё раз');
+      if (e?.response) setError(errorMessage(e, 'Не удалось отправить отчёт — попробуйте ещё раз'));
       else setError('Нет связи с сервером — проверьте интернет и попробуйте ещё раз');
     } finally {
       setBusy(false);
@@ -104,6 +103,7 @@ export default function Home() {
   }
 
   const task = state?.active_task ?? null;
+  const isPenaltyTask = task?.kind === 'penalty';
   const holidayActive = state?.holiday_id != null;
   const abandonText = holidayActive
     ? 'Карточка не попадёт в коллекцию, но её можно будет принять снова.'
@@ -124,7 +124,7 @@ export default function Home() {
       await load();
     } catch (e: any) {
       setAskAbandon(false);
-      setError(e?.response?.data?.detail || 'Не удалось отказаться от задания');
+      setError(errorMessage(e, 'Не удалось отказаться от задания'));
     } finally {
       setBusy(false);
     }
@@ -236,33 +236,39 @@ export default function Home() {
             />
           </label>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isPenaltyTask ? '1fr' : '1fr 1fr', gap: 10 }}>
           <button
             className="fm-btn"
             disabled={busy || !beforeFile || !afterFile || !amount}
             onClick={() => submitReport('norm')}
           >
-            {busy ? <span className="fm-spinner" /> : `✅ Норма · ${task.required_crosses}`}
+            {busy ? <span className="fm-spinner" /> : `✅ ${isPenaltyTask ? 'Сдать · ' : 'Норма · '}${task.required_crosses}`}
           </button>
-          <button
-            className="fm-btn fm-btn-outline"
-            disabled={busy || !beforeFile || !afterFile || !amount}
-            onClick={() => submitReport('penalty')}
-          >
-            ⚠️ Штраф · {task.required_crosses * 2}
-          </button>
+          {!isPenaltyTask && (
+            <button
+              className="fm-btn fm-btn-outline"
+              disabled={busy || !beforeFile || !afterFile || !amount}
+              onClick={() => submitReport('penalty')}
+            >
+              ⚠️ Штраф · {task.required_crosses * 2}
+            </button>
+          )}
         </div>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-          Фото «до» и «после» обязательны, «превью» и «сага» — по желанию. «Штраф» закрывает задание двойной нормой.
+          {isPenaltyTask
+            ? 'Выкупленное задание сдаётся по норме 1000 крестиков — отказаться от него нельзя.'
+            : 'Фото «до» и «после» обязательны, «превью» и «сага» — по желанию. «Штраф» закрывает задание двойной нормой.'}
         </p>
-        <button
-          className="fm-btn fm-btn-outline"
-          disabled={busy}
-          onClick={() => setAskAbandon(true)}
-        >
-          Отказаться от задания
-        </button>
-        {holidayActive && (
+        {!isPenaltyTask && (
+          <button
+            className="fm-btn fm-btn-outline"
+            disabled={busy}
+            onClick={() => setAskAbandon(true)}
+          >
+            Отказаться от задания
+          </button>
+        )}
+        {holidayActive && !isPenaltyTask && (
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
             Пока задание не сдано, другую карточку принять нельзя — или откажитесь от него.
           </p>
@@ -299,7 +305,8 @@ export default function Home() {
             <>
               <h2>🎉 Праздник завершён</h2>
               <p style={{ color: 'var(--text-secondary)' }}>
-                Праздник закончился, но взятое задание ещё действует — сдайте его или откажитесь от него выше.
+                Праздник закончился, но взятое задание ещё действует —{' '}
+                {isPenaltyTask ? 'сдайте его выше.' : 'сдайте его или откажитесь от него выше.'}
               </p>
             </>
           ) : (

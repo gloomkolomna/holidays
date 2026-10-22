@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { api, type Appearance, type HolidayDetail } from './api/endpoints';
 import Background from './components/Background';
+import ErrorBoundary from './components/ErrorBoundary';
 import MiniAppShell from './components/MiniAppShell';
 import { useSession } from './context/SessionContext';
 import { useVkBridge } from './context/VkBridgeContext';
@@ -90,8 +91,9 @@ export default function App() {
     <>
       <Background url={activeHoliday?.bg_image_url || appearance?.game_bg_url} color={activeHoliday?.bg_color} />
       <MiniAppShell>
-        <Suspense fallback={<Skeleton />}>
-          <Routes>
+        <ErrorBoundary>
+          <Suspense fallback={<Skeleton />}>
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/collection" element={<Collection />} />
             <Route path="/shop" element={<Shop />} />
@@ -117,7 +119,8 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
-        </Suspense>
+          </Suspense>
+        </ErrorBoundary>
       </MiniAppShell>
     </>
   );

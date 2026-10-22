@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, type Shop, type ShopCard, type ShopHoliday } from '../api/endpoints';
+import { errorMessage } from '../api/errors';
 import { mediaUrl } from '../api/media';
 
 function dayLabel(day: string): string {
@@ -35,7 +36,7 @@ export default function ShopPage() {
       setJustTaken(card.title);
       await load();
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось взять карточку');
+      setError(errorMessage(e, 'Не удалось взять карточку'));
     } finally {
       setBusy(false);
     }

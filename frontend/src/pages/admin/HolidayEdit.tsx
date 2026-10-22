@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, type HolidayCard, type HolidayCategoryDetail, type HolidayDetail, type HolidayInput } from '../../api/endpoints';
+import { errorMessage } from '../../api/errors';
 import { mediaUrl } from '../../api/media';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import { PALETTES } from '../../theme';
@@ -123,7 +124,7 @@ export default function HolidayEdit() {
         shop_enabled: d.shop_enabled,
       });
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Праздник не найден');
+      setError(errorMessage(e, 'Праздник не найден'));
     } finally {
       setLoaded(true);
     }
@@ -146,7 +147,7 @@ export default function HolidayEdit() {
         navigate(`/admin/holidays/${created.id}`);
       }
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Ошибка сохранения');
+      setError(errorMessage(e, 'Ошибка сохранения'));
     } finally {
       setBusy(false);
     }
@@ -166,7 +167,7 @@ export default function HolidayEdit() {
       setNewCategoryNorm('500');
       await loadDetail(holidayId);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось создать категорию');
+      setError(errorMessage(e, 'Не удалось создать категорию'));
     }
   }
 
@@ -186,7 +187,7 @@ export default function HolidayEdit() {
       setEditCat(null);
       await loadDetail(holidayId);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось сохранить категорию');
+      setError(errorMessage(e, 'Не удалось сохранить категорию'));
     }
   }
 
@@ -228,7 +229,7 @@ export default function HolidayEdit() {
         return next;
       });
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось сохранить карточку');
+      setError(errorMessage(e, 'Не удалось сохранить карточку'));
     }
   }
 
@@ -257,7 +258,7 @@ export default function HolidayEdit() {
       await api.adminUploadHolidayAnimation(holidayId, file);
       await loadDetail(holidayId);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось загрузить анимацию');
+      setError(errorMessage(e, 'Не удалось загрузить анимацию'));
     }
   }
 
@@ -274,7 +275,7 @@ export default function HolidayEdit() {
       await api.adminUploadHolidayAudio(holidayId, file);
       await loadDetail(holidayId);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось загрузить музыку');
+      setError(errorMessage(e, 'Не удалось загрузить музыку'));
     }
   }
 
@@ -334,7 +335,7 @@ export default function HolidayEdit() {
       });
       await loadDetail(holidayId);
     } catch (e: any) {
-      setError(e?.response?.data?.detail || 'Не удалось сохранить карточку');
+      setError(errorMessage(e, 'Не удалось сохранить карточку'));
     }
   }
 
