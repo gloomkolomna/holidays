@@ -194,6 +194,20 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
+# ===== Консистентный бэкап SQLite (WAL-safe) =====
+# cp при включённом WAL теряет данные из holiday.db-wal, поэтому бэкап
+# только через backup API sqlite3 (он делает checkpoint в копию).
+PY_BIN="$API_DIR/venv/bin/python"
+[ -x "$PY_BIN" ] || PY_BIN="python3"
+
+sqlite_backup() {
+    "$PY_BIN" -c "import sqlite3,sys; s=sqlite3.connect(sys.argv[1]); d=sqlite3.connect(sys.argv[2]); s.backup(d); d.close(); s.close()" "$1" "$2"
+}
+
+sqlite_backup_ok() {
+    "$PY_BIN" -c "import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); r=c.execute('PRAGMA integrity_check').fetchone()[0]; c.close(); sys.exit(0 if r=='ok' else 1)" "$1"
+}
+
 # ===== Откат БД =====
 rollback_db() {
     log "ОТКАТ: попытка вернуться к ревизии '$PREV_REV'..."
@@ -210,8 +224,11 @@ rollback_db() {
 
     if [ -n "$BACKUP_PATH" ] && [ -f "$BACKUP_PATH" ]; then
         log "ОТКАТ: восстановление БД из '$BACKUP_PATH'..."
+        log "ОТКАТ: останавливаю сервис на время восстановления БД..."
+        systemctl stop holidays-api 2>/dev/null || true
+        rm -f "$DB_FILE-wal" "$DB_FILE-shm"
         cp "$BACKUP_PATH" "$DB_FILE"
-        log "ОТКАТ: БД восстановлена из бэкапа."
+        log "ОТКАТ: БД восстановлена из бэкапа (сервис будет запущен в конце отката)."
         return 0
     fi
 
@@ -312,8 +329,13 @@ fi
 
 if [ -f "$DB_FILE" ]; then
     BACKUP_PATH="$BACKUP_DIR/holiday.db.bak.$(date '+%Y%m%d_%H%M%S')"
-    cp "$DB_FILE" "$BACKUP_PATH"
-    log "Бэкап БД создан: $BACKUP_PATH ($(du -h "$BACKUP_PATH" | cut -f1))"
+    if sqlite_backup "$DB_FILE" "$BACKUP_PATH" && sqlite_backup_ok "$BACKUP_PATH"; then
+        log "Бэкап БД создан (WAL-safe, integrity ok): $BACKUP_PATH ($(du -h "$BACKUP_PATH" | cut -f1))"
+    else
+        log "ВНИМАНИЕ: не удалось создать консистентный бэкап БД. Деплой продолжится, но точки отката БД не будет."
+        rm -f "$BACKUP_PATH" 2>/dev/null || true
+        BACKUP_PATH=""
+    fi
 
     ls -1t "$BACKUP_DIR"/holiday.db.bak.* 2>/dev/null | tail -n +$((BACKUPS_TO_KEEP + 1)) | while read -r old; do
         rm -f "$old"
