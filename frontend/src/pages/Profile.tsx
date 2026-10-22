@@ -55,6 +55,10 @@ export default function Profile() {
           300 крестика = 450 полукрестов
         </div>
       </div>
+      <div className="fm-card" style={{ marginTop: 12, fontSize: 14, color: 'var(--text-muted)' }}>
+        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>🔑 Кодовое слово</div>
+        <div style={{ marginTop: 6 }}>Кодовое слово — название карточки</div>
+      </div>
     </div>
   );
 }
