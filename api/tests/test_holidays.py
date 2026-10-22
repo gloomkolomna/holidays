@@ -421,7 +421,7 @@ def test_card_image_upload_size_limit_20mb(admin_client, uploads_tmp):
     slot = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["cards"][0]
     card = admin_client.put(f"/api/admin/holidays/{hid}/cards/{slot['id']}", json={"title": "Карточка"}).json()
 
-    assert config.UPLOAD_MAX_BYTES == 20 * 1024 * 1024
+    assert config.UPLOAD_MAX_BYTES == 50 * 1024 * 1024
 
     too_big = b"x" * (config.UPLOAD_MAX_BYTES + 1)
     resp = admin_client.post(
@@ -429,7 +429,7 @@ def test_card_image_upload_size_limit_20mb(admin_client, uploads_tmp):
         files={"file": ("big.png", too_big, "image/png")},
     )
     assert resp.status_code == 400
-    assert "макс. 20 МБ" in resp.json()["detail"]
+    assert "макс. 50 МБ" in resp.json()["detail"]
 
 
 def test_animation_size_validation(admin_client):
