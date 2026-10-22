@@ -46,6 +46,15 @@ export default function Profile() {
           <span>🎵 Музыка праздника {music ? 'включена' : 'выключена'}</span>
         </label>
       </div>
+      <div className="fm-card" style={{ marginTop: 12, fontSize: 14, color: 'var(--text-muted)' }}>
+        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>🧵 Пересчёт для полукреста</div>
+        <div style={{ marginTop: 6 }}>Вышиваете полукрестом? Норма пересчитывается ×1,5:</div>
+        <div style={{ marginTop: 6, lineHeight: 1.7 }}>
+          500 крестиков = 750 полукрестов<br />
+          400 крестиков = 600 полукрестов<br />
+          300 крестика = 450 полукрестов
+        </div>
+      </div>
     </div>
   );
 }
