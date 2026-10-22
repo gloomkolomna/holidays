@@ -108,7 +108,7 @@ async def log_failed_requests(request: Request, call_next):
 
     if should_log:
         status_code = response.status_code
-        if status_code >= 400:
+        if status_code >= 400 and status_code != 401:
             try:
                 raw = await _read_body(response)
                 message, details = _extract_detail(raw)

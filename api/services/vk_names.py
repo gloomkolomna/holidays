@@ -86,10 +86,6 @@ def resolve_vk_names(vk_ids: list[int]) -> dict[int, dict]:
                 _NAME_MISS_CACHE[uid] = now
 
     _NAME_CACHE.update(resolved)
-    record_log(
-        "vk", "info", event="vk_api", message="users.get ok",
-        details={"requested": len(ids_to_request), "resolved": len(resolved)},
-    )
     return {k: dict(v) for k, v in _NAME_CACHE.items()}
 
 

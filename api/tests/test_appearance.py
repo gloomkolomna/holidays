@@ -95,6 +95,16 @@ def test_admin_logs_requires_admin(player_client):
     assert player_client.get("/api/admin/logs").status_code == 403
 
 
+def test_admin_logs_skip_401_and_info(raw_client, db):
+    from models import Log
+
+    assert raw_client.get("/api/me").status_code == 401
+
+    rows = db.query(Log).all()
+    assert all(r.status_code != 401 for r in rows)
+    assert all(r.level != "info" for r in rows)
+
+
 def test_admin_logs_lists_entries(admin_client):
     from tests.conftest import make_user_client
 

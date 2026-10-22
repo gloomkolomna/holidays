@@ -4,7 +4,6 @@ import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
 const LEVEL_LABELS: Record<string, string> = {
   '': 'все',
-  info: 'info',
   warn: 'предупреждения',
   error: 'ошибки',
 };
@@ -37,7 +36,7 @@ export default function LogsTab() {
       <div className="fm-card">
         <h2>📜 Логи</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
-          Последние 50 записей: неуспешные запросы (4xx/5xx) и ошибки сервера.
+          Последние 50 записей: ошибки сервера и неуспешные запросы (401 не логируется).
         </p>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <select className="fm-input" style={{ maxWidth: 220 }} value={level} onChange={(e) => setLevel(e.target.value)}>
