@@ -170,6 +170,10 @@ class RewardCode(Base):
     taken_by = Column(Integer, nullable=True)
     taken_at = Column(DateTime, nullable=True)
 
+    __table_args__ = (
+        Index("uq_rewardcode_item_code", "item_id", "code", unique=True),
+    )
+
 
 class RewardPurchase(Base):
     __tablename__ = "reward_purchases"
@@ -179,6 +183,10 @@ class RewardPurchase(Base):
     item_id = Column(Integer, ForeignKey("reward_items.id", ondelete="CASCADE"), nullable=False)
     code_id = Column(Integer, ForeignKey("reward_codes.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
+
+    __table_args__ = (
+        Index("uq_rewardpurchase_code", "code_id", unique=True),
+    )
 
 
 class Log(Base):

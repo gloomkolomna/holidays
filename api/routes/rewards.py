@@ -3,6 +3,8 @@ import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from pydantic import BaseModel
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from db import get_db
@@ -154,12 +156,41 @@ def buy_item(data: BuyIn, user: User = Depends(get_current_user), db: Session = 
     if code is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Товар распродан — кодов больше нет")
 
-    row.crystals = row.crystals - item.price_crystals
-    code.taken_by = user.vk_id
-    code.taken_at = datetime.datetime.utcnow()
+    claimed = db.execute(
+        update(RewardCode)
+        .where(RewardCode.id == code.id, RewardCode.taken_by.is_(None))
+        .values(taken_by=user.vk_id, taken_at=datetime.datetime.utcnow())
+    )
+    if claimed.rowcount != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Код только что забрал другой игрок — попробуйте ещё раз",
+        )
+
+    debited = db.execute(
+        update(User)
+        .where(User.vk_id == user.vk_id, User.crystals >= item.price_crystals)
+        .values(crystals=User.crystals - item.price_crystals)
+    )
+    if debited.rowcount != 1:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Не хватает кристаллов: нужно {item.price_crystals}, у вас {row.crystals or 0}",
+        )
+
     purchase = RewardPurchase(user_id=user.vk_id, item_id=item.id, code_id=code.id)
-    db.add(purchase)
-    db.commit()
+    try:
+        db.add(purchase)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Покупка уже оформлена — попробуйте ещё раз",
+        )
+    db.refresh(row)
 
     return {
         "ok": True,
@@ -254,6 +285,11 @@ def admin_delete_item(item_id: int, db: Session = Depends(get_db)):
     item = db.query(RewardItem).filter(RewardItem.id == item_id).first()
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Товар не найден")
+    if db.query(RewardPurchase.id).filter(RewardPurchase.item_id == item_id).first() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="У товара есть покупки — удаление запрещено. Снимите «Активен», чтобы скрыть его из лавки",
+        )
     db.delete(item)
     db.commit()
     return {"ok": True}
@@ -264,12 +300,17 @@ def admin_add_codes(item_id: int, data: CodesIn, db: Session = Depends(get_db)):
     item = db.query(RewardItem).filter(RewardItem.id == item_id).first()
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Товар не найден")
+    existing = {
+        row[0] for row in db.query(RewardCode.code).filter(RewardCode.item_id == item_id).all()
+    }
     added = 0
+    seen: set[str] = set()
     for raw in data.codes:
         code = raw.strip()
-        if not code:
+        if not code or code in existing or code in seen:
             continue
         db.add(RewardCode(item_id=item.id, code=code))
+        seen.add(code)
         added += 1
     db.commit()
     return {"added": added, "available": _available_codes(db, item.id)}

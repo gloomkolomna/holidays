@@ -1,6 +1,9 @@
 import datetime
 
-from models import CollectionReward, RewardCode, RewardItem, User
+import pytest
+from sqlalchemy.exc import IntegrityError
+
+from models import CollectionReward, RewardCode, RewardItem, RewardPurchase, User
 from services.msk_time import now_msk
 from services.rewards import ensure_collection_reward
 from tests.conftest import make_user_client
@@ -145,6 +148,52 @@ def test_buy_out_of_codes(admin_client, db):
     assert "распродан" in resp.json()["detail"]
 
 
+def test_buy_last_code_two_players_one_wins(admin_client, db):
+    item = _make_item(admin_client, price=1, codes=("LAST-1",))
+    db.add(User(vk_id=123, role="player", crystals=5))
+    db.add(User(vk_id=456, role="player", crystals=5))
+    db.commit()
+    with make_user_client(123) as first:
+        assert first.post("/api/rewards/buy", json={"item_id": item["id"]}).status_code == 200
+    with make_user_client(456) as second:
+        resp = second.post("/api/rewards/buy", json={"item_id": item["id"]})
+    assert resp.status_code == 400
+    assert "распродан" in resp.json()["detail"]
+    assert db.query(User).filter(User.vk_id == 456).first().crystals == 5
+    purchases = db.query(RewardPurchase).all()
+    assert len(purchases) == 1
+    assert purchases[0].user_id == 123
+
+
+def test_duplicate_codes_ignored_on_add(admin_client):
+    item = _make_item(admin_client, codes=("DUP-1",))
+    resp = admin_client.post(
+        f"/api/admin/rewards/items/{item['id']}/codes",
+        json={"codes": ["DUP-1", " DUP-2 ", "DUP-2", ""]},
+    ).json()
+    assert resp["added"] == 1
+    assert resp["available"] == 2
+
+
+def test_db_rejects_second_purchase_for_same_code(admin_client, db):
+    item = _make_item(admin_client, codes=("U-1",))
+    code = db.query(RewardCode).filter(RewardCode.item_id == item["id"]).first()
+    db.add(RewardPurchase(user_id=123, item_id=item["id"], code_id=code.id))
+    db.commit()
+    db.add(RewardPurchase(user_id=123, item_id=item["id"], code_id=code.id))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
+def test_db_rejects_duplicate_item_code(admin_client, db):
+    item = _make_item(admin_client, codes=("R-1",))
+    db.add(RewardCode(item_id=item["id"], code="R-1"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
 def test_admin_items_crud_and_codes(admin_client):
     item = admin_client.post(
         "/api/admin/rewards/items",
@@ -183,6 +232,16 @@ def test_taken_code_cannot_be_deleted(admin_client, db):
     db.commit()
     resp = admin_client.delete(f"/api/admin/rewards/codes/{code.id}")
     assert resp.status_code == 400
+
+
+def test_delete_item_with_purchases_forbidden(admin_client, db):
+    item = _make_item(admin_client)
+    db.add(User(vk_id=123, role="player", crystals=5))
+    db.commit()
+    with make_user_client(123) as player:
+        assert player.post("/api/rewards/buy", json={"item_id": item["id"]}).status_code == 200
+    assert admin_client.delete(f"/api/admin/rewards/items/{item['id']}").status_code == 409
+    assert [i["id"] for i in admin_client.get("/api/admin/rewards/items").json()] == [item["id"]]
 
 
 def test_admin_forbidden_for_player(player_client):
