@@ -225,6 +225,8 @@ button.fm-card {
   white-space: normal;
   text-align: center;
   max-width: 100%;
+  min-width: 0;
+  overflow-wrap: break-word;
   color: #241505;
   background: linear-gradient(180deg, var(--gold) 0%, var(--gold-deep) 100%);
   border: 1px solid #8a6420;
@@ -281,6 +283,7 @@ button.fm-card {
 /* ── Поля ввода ── */
 .fm-input {
   width: 100%;
+  min-width: 0;
   padding: 10px 12px;
   font-family: var(--font-body);
   font-size: 17px;

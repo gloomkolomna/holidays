@@ -251,7 +251,7 @@ export default function Home() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                🖼 Превью (необязательно){previewFile ? ' ✓' : ''}
+                🖼 Превью{previewFile ? ' ✓' : ''}
                 <input
                   type="file"
                   accept="image/*"
@@ -260,7 +260,7 @@ export default function Home() {
                 />
               </label>
               <label className="fm-btn fm-btn-outline" style={{ cursor: 'pointer' }}>
-                📖 Сага (необязательно){sagaFile ? ' ✓' : ''}
+                📖 Сага{sagaFile ? ' ✓' : ''}
                 <input
                   type="file"
                   accept="image/*"
