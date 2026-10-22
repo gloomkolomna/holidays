@@ -33,7 +33,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 // Разбор launch params из URL — работает и для query (?vk_user_id=...),
 // и для hash (#vk_user_id=...). VK на разных платформах передаёт по-разному.
-function parseVkParamsFromUrl(): { vkUserId: number | null; params: Record<string, string> } {
+export function parseVkParamsFromUrl(): { vkUserId: number | null; params: Record<string, string> } {
+  const decode = (s: string) => {
+    try { return decodeURIComponent(s); } catch { return s; }
+  };
   const sources = [window.location.search, window.location.hash];
   const params: Record<string, string> = {};
   let vkUserId: number | null = null;
@@ -41,9 +44,10 @@ function parseVkParamsFromUrl(): { vkUserId: number | null; params: Record<strin
   for (const src of sources) {
     const qs = src.startsWith('?') || src.startsWith('#') ? src.substring(1) : src;
     qs.split('&').forEach((p) => {
-      const [k, v] = p.split('=');
-      if (!k) return;
-      const val = decodeURIComponent(v || '');
+      const eq = p.indexOf('=');
+      if (eq <= 0) return;
+      const k = p.slice(0, eq);
+      const val = decode(p.slice(eq + 1));
       params[k] = val;
       if (k === 'vk_user_id') vkUserId = Number(val);
     });
@@ -85,71 +89,79 @@ export function VkBridgeProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function init() {
-      let id: number | null = null;
-      let params: Record<string, string> = {};
-      let inVk = false;
-
-      // 1. МГНОВЕННЫЙ способ — разбор URL (query + hash). На мобайле ВК всегда
-      //    передаёт vk_user_id в URL, это не требует сети и не таймаутит.
       try {
-        const lp = parseURLSearchParamsForGetLaunchParams(
-          window.location.search + window.location.hash,
-        );
-        if (lp && (lp as any).vk_user_id) {
-          inVk = true;
-          id = Number((lp as any).vk_user_id);
-          params = Object.fromEntries(
-            Object.entries(lp).map(([k, v]) => [k, String(v)])
-          );
-        }
-      } catch {
-        // игнорируем
-      }
+        let id: number | null = null;
+        let params: Record<string, string> = {};
+        let inVk = false;
 
-      // 2. Запасной raw-разбор URL.
-      if (!id) {
-        const fallback = parseVkParamsFromUrl();
-        if (fallback.vkUserId) {
-          inVk = true;
-          id = fallback.vkUserId;
-          params = fallback.params;
-        }
-      }
-
-      // 3. Обязательный запуск приложения в VK (fire-and-forget).
-      bridge.send('VKWebAppInit').catch(() => { /* вне VK — метод недоступен */ });
-
-      // 4. Дополнительный запрос launch params через VK Bridge — не блокирующий.
-      if (!id) {
+        // 1. МГНОВЕННЫЙ способ — разбор URL (query + hash). На мобайле ВК всегда
+        //    передаёт vk_user_id в URL, это не требует сети и не таймаутит.
         try {
-          const lp = await withTimeout(bridge.send('VKWebAppGetLaunchParams'), 3000);
-          if (lp && lp.vk_user_id) {
+          const lp = parseURLSearchParamsForGetLaunchParams(
+            window.location.search + window.location.hash,
+          );
+          if (lp && (lp as any).vk_user_id) {
             inVk = true;
-            id = Number(lp.vk_user_id);
+            id = Number((lp as any).vk_user_id);
             params = Object.fromEntries(
-              Object.entries(lp).map(([k, v]) => [k, String(v)])
+              Object.entries(lp)
+                .filter(([, v]) => v !== undefined && v !== null)
+                .map(([k, v]) => [k, String(v)])
             );
           }
         } catch {
-          // вне VK — метод недоступен
+          // игнорируем
         }
-      }
 
-      if (id) {
-        setIsVkWebView(true);
-        setVkUserId(id);
-        setLaunchParams(params);
-        const cur = getComputedStyle(document.documentElement)
-          .getPropertyValue('--vk-inset-top').trim();
-        if (!cur || cur === '0px') {
-          document.documentElement.style.setProperty('--vk-inset-top', '48px');
+        // 2. Запасной raw-разбор URL.
+        if (!id) {
+          const fallback = parseVkParamsFromUrl();
+          if (fallback.vkUserId) {
+            inVk = true;
+            id = fallback.vkUserId;
+            params = fallback.params;
+          }
         }
-      } else if (DEMO_VK_ID) {
-        setIsDemo(true);
-        setVkUserId(DEMO_VK_ID);
-      }
 
-      if (!cancelled) setLoading(false);
+        // 3. Обязательный запуск приложения в VK (fire-and-forget).
+        bridge.send('VKWebAppInit').catch(() => { /* вне VK — метод недоступен */ });
+
+        // 4. Дополнительный запрос launch params через VK Bridge — не блокирующий.
+        if (!id) {
+          try {
+            const lp = await withTimeout(bridge.send('VKWebAppGetLaunchParams'), 3000);
+            if (lp && lp.vk_user_id) {
+              inVk = true;
+              id = Number(lp.vk_user_id);
+              params = Object.fromEntries(
+                Object.entries(lp)
+                  .filter(([, v]) => v !== undefined && v !== null)
+                  .map(([k, v]) => [k, String(v)])
+              );
+            }
+          } catch {
+            // вне VK — метод недоступен
+          }
+        }
+
+        if (id) {
+          setIsVkWebView(true);
+          setVkUserId(id);
+          setLaunchParams(params);
+          const cur = getComputedStyle(document.documentElement)
+            .getPropertyValue('--vk-inset-top').trim();
+          if (!cur || cur === '0px') {
+            document.documentElement.style.setProperty('--vk-inset-top', '48px');
+          }
+        } else if (DEMO_VK_ID) {
+          setIsDemo(true);
+          setVkUserId(DEMO_VK_ID);
+        }
+      } catch {
+        // битая ссылка/параметры — покажем заглушку вне VK
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     init();

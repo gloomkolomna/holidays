@@ -2,9 +2,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, type DailyStats } from '../../api/endpoints';
 import { useAutoRefresh } from '../../hooks/useAutoRefresh';
 
+function mskDateString(offsetDays = 0): string {
+  const MSK_OFFSET_MS = 3 * 3600 * 1000;
+  return new Date(Date.now() + MSK_OFFSET_MS + offsetDays * 24 * 3600 * 1000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 function yesterday(): string {
-  const d = new Date(Date.now() - 24 * 3600 * 1000);
-  return d.toISOString().slice(0, 10);
+  return mskDateString(-1);
 }
 
 export default function StatsTab() {
@@ -40,7 +46,7 @@ export default function StatsTab() {
             <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{label}</span>
           )}
           <button className="fm-btn fm-btn-outline" onClick={() => setDay(yesterday())}>Вчера</button>
-          <button className="fm-btn fm-btn-outline" onClick={() => setDay(new Date().toISOString().slice(0, 10))}>Сегодня</button>
+          <button className="fm-btn fm-btn-outline" onClick={() => setDay(mskDateString())}>Сегодня</button>
         </div>
       </div>
 
