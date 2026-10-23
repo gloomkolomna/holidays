@@ -11,6 +11,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import MusicPlayer from '../components/MusicPlayer';
 import ParticlesBackground from '../components/ParticlesBackground';
 import { useSession } from '../context/SessionContext';
+import { msUntilNextMskMidnight } from '../utils/mskTime';
 import { applySurfaceColor } from '../theme';
 
 function dayLabel(day: string): string {
@@ -25,6 +26,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justCollected, setJustCollected] = useState<string | null>(null);
+  const [newDayNotice, setNewDayNotice] = useState(false);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [askAbandon, setAskAbandon] = useState(false);
   const swiperRef = useRef<SwiperClass | null>(null);
@@ -56,6 +58,25 @@ export default function Home() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(() => {
+        setNewDayNotice(true);
+        load();
+        schedule();
+      }, msUntilNextMskMidnight());
+    };
+    schedule();
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  useEffect(() => {
+    if (!newDayNotice) return;
+    const t = setTimeout(() => setNewDayNotice(false), 6000);
+    return () => clearTimeout(t);
+  }, [newDayNotice]);
+
+  useEffect(() => {
     applySurfaceColor(holiday?.bg_color);
     return () => applySurfaceColor(null);
   }, [holiday?.bg_color]);
@@ -67,7 +88,12 @@ export default function Home() {
       await api.takeCard(cardId);
       await load();
     } catch (e: any) {
-      setError(errorMessage(e, 'Не удалось принять карточку'));
+      if (errorMessage(e, '') === 'Эта карточка показывается в другой день') {
+        setNewDayNotice(true);
+        await load();
+      } else {
+        setError(errorMessage(e, 'Не удалось принять карточку'));
+      }
     } finally {
       setBusy(false);
     }
@@ -356,6 +382,13 @@ export default function Home() {
         <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center', borderColor: 'var(--success)' }}>
           <div style={{ fontSize: 30 }}>🃏✨</div>
           Карточка «{justCollected}» в коллекции!
+        </div>
+      )}
+
+      {newDayNotice && (
+        <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center' }}>
+          <div style={{ fontSize: 30 }}>🗓✨</div>
+          Начался новый день — карточки обновились
         </div>
       )}
 
