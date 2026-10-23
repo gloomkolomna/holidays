@@ -448,6 +448,21 @@ def test_animation_upload_strips_white_background(admin_client, uploads_tmp):
     assert admin_client.get(f"/api/admin/holidays/{hid}").json()["animation_url"] is None
 
 
+def test_animation_upload_larger_than_512_resized(admin_client, uploads_tmp):
+    from PIL import Image
+    import os
+
+    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    resp = admin_client.post(
+        f"/api/admin/holidays/{hid}/animation",
+        files={"file": ("silhouette.png", _white_bg_png(size=700), "image/png")},
+    )
+    assert resp.status_code == 200
+
+    saved = Image.open(os.path.join(uploads_tmp, resp.json()["animation_url"].rsplit("/", 1)[-1]))
+    assert max(saved.size) <= 512
+
+
 def test_animation_upload_keeps_existing_alpha(admin_client, uploads_tmp):
     hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
     from PIL import Image

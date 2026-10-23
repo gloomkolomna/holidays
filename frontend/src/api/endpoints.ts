@@ -126,6 +126,7 @@ export interface LogEntry {
   path: string | null;
   status_code: number | null;
   message: string | null;
+  details: Record<string, unknown> | null;
   user_id: number | null;
   created_at: string;
 }

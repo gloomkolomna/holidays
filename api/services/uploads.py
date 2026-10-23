@@ -78,6 +78,8 @@ def _open_image(buf: bytes):
 
 
 def _process(buf: bytes, max_size: int | None) -> tuple[bytes, bool]:
+    from PIL import Image
+
     if max_size is None:
         return buf, True
 
@@ -216,6 +218,8 @@ def _strip_edge_white(img):
 
 def save_silhouette_upload(upload: UploadFile, prefix: str) -> str:
     """Силуэт для частиц: белая подложка убирается в прозрачность, размер до 512px."""
+    from PIL import Image
+
     ctype = (upload.content_type or "").lower()
     if not ctype.startswith("image/"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл должен быть изображением")

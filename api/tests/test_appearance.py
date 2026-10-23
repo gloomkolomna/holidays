@@ -95,6 +95,26 @@ def test_admin_logs_requires_admin(player_client):
     assert player_client.get("/api/admin/logs").status_code == 403
 
 
+def test_admin_logs_return_details(admin_client, db):
+    import json
+
+    from models import Log
+
+    db.add(
+        Log(
+            source="server", level="error", event="exception",
+            method="POST", path="/api/game/tasks/90/report",
+            message="Unhandled exception",
+            details=json.dumps({"traceback": "NameError: name 'Image' is not defined"}),
+        )
+    )
+    db.commit()
+
+    rows = admin_client.get("/api/admin/logs?level=error").json()
+    assert rows
+    assert rows[0]["details"]["traceback"] == "NameError: name 'Image' is not defined"
+
+
 def test_admin_logs_skip_401_and_info(raw_client, db):
     from models import Log
 

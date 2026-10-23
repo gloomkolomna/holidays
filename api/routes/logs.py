@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -22,8 +23,19 @@ class LogOut(BaseModel):
     path: str | None
     status_code: int | None
     message: str | None
+    details: dict | None
     user_id: int | None
     created_at: str
+
+
+def _parse_details(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+    except ValueError:
+        return {"raw": raw}
+    return value if isinstance(value, dict) else {"raw": raw}
 
 
 @admin_router.get("", response_model=list[LogOut])
@@ -46,6 +58,7 @@ def admin_logs(
             path=row.path,
             status_code=row.status_code,
             message=row.message,
+            details=_parse_details(row.details),
             user_id=row.user_id,
             created_at=row.created_at.isoformat() if row.created_at else "",
         )

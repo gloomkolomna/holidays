@@ -86,6 +86,16 @@ export default function LogsTab() {
                     {row.message}
                   </pre>
                 )}
+                {row.details && Object.keys(row.details).length > 0 && (
+                  <details style={{ marginTop: 6 }}>
+                    <summary style={{ cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', userSelect: 'none' }}>
+                      Подробности
+                    </summary>
+                    <pre style={{ marginTop: 6, marginBottom: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 11, fontFamily: 'monospace', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.25)', padding: 8, borderRadius: 6 }}>
+                      {typeof row.details.traceback === 'string' ? row.details.traceback : JSON.stringify(row.details, null, 2)}
+                    </pre>
+                  </details>
+                )}
               </div>
             );
           })}

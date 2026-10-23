@@ -187,6 +187,28 @@ def test_report_without_optional_photos(admin_client, uploads_tmp):
         assert reports[0]["photo_saga"] is None
 
 
+def test_report_with_photo_larger_than_1280_resized(admin_client, uploads_tmp):
+    from PIL import Image
+    import os
+
+    hid, today, cards = _create_holiday_with_filled_days(admin_client)
+    buf = io.BytesIO()
+    Image.new("RGB", (1300, 900), (30, 30, 200)).save(buf, format="JPEG")
+    photo = ("big.jpg", buf.getvalue(), "image/jpeg")
+    with make_user_client(123) as player:
+        task = player.post(f"/api/game/cards/{cards[today]['Наряды']['id']}/take").json()
+        resp = player.post(
+            f"/api/game/tasks/{task['id']}/report",
+            data={"amount": "500", "mode": "norm"},
+            files={"photo_before": photo, "photo_after": photo},
+        )
+        assert resp.status_code == 200
+
+        url = player.get("/api/game/reports/my").json()[0]["photo_before"]
+        saved = Image.open(os.path.join(uploads_tmp, url.rsplit("/", 1)[-1]))
+        assert max(saved.size) <= 1280
+
+
 def test_abandon_and_take_other(admin_client):
     hid, today, cards = _create_holiday_with_filled_days(admin_client)
     with make_user_client(123) as player:
