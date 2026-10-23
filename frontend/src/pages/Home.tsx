@@ -103,6 +103,7 @@ export default function Home() {
     if (!state?.active_task || !beforeFile || !afterFile) return;
     setBusy(true);
     setError(null);
+    const startedAt = Date.now();
     try {
       const res = await api.reportTask(
         state.active_task.id,
@@ -122,7 +123,18 @@ export default function Home() {
       await load();
     } catch (e: any) {
       if (e?.response) setError(errorMessage(e, 'Не удалось отправить отчёт — попробуйте ещё раз'));
-      else setError('Нет связи с сервером — проверьте интернет и попробуйте ещё раз');
+      else {
+        setError('Нет связи с сервером — проверьте интернет и попробуйте ещё раз');
+        api.clientLog({
+          event: 'report_upload_failed',
+          elapsed_ms: Date.now() - startedAt,
+          code: String(e?.code ?? ''),
+          task_id: state.active_task.id,
+          files: [beforeFile, afterFile, previewFile, sagaFile]
+            .filter((f): f is File => !!f)
+            .map((f) => ({ name: f.name, size: f.size, type: f.type })),
+        }).catch(() => {});
+      }
     } finally {
       setBusy(false);
     }

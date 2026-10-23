@@ -16,7 +16,7 @@ from routes.rewards import router as rewards_router, admin_router as admin_rewar
 from routes.stats import admin_router as admin_stats_router
 from routes.players import admin_router as admin_players_router
 from routes.appearance import router as appearance_router, admin_router as admin_appearance_router
-from routes.logs import admin_router as admin_logs_router
+from routes.logs import admin_router as admin_logs_router, client_router as client_logs_router
 from routes.settings import admin_router as admin_settings_router
 from routes.info import router as info_router, admin_router as admin_info_router
 
@@ -59,6 +59,7 @@ app.include_router(admin_players_router)
 app.include_router(appearance_router)
 app.include_router(admin_appearance_router)
 app.include_router(admin_logs_router)
+app.include_router(client_logs_router)
 app.include_router(admin_settings_router)
 app.include_router(info_router)
 app.include_router(admin_info_router)

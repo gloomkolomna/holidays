@@ -115,6 +115,51 @@ def test_admin_logs_return_details(admin_client, db):
     assert rows[0]["details"]["traceback"] == "NameError: name 'Image' is not defined"
 
 
+def _client_log_payload():
+    return {
+        "event": "report_upload_failed",
+        "elapsed_ms": 15004,
+        "code": "ECONNABORTED",
+        "task_id": 90,
+        "files": [
+            {"name": "before.heic", "size": 5_500_000, "type": "image/heic"},
+            {"name": "after.jpg", "size": 400_000, "type": "image/jpeg"},
+        ],
+    }
+
+
+def test_client_log_written(player_client, db):
+    from models import Log
+
+    resp = player_client.post("/api/client-log", json=_client_log_payload())
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+    rows = db.query(Log).filter(Log.event == "report_upload_failed").all()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row.source == "client"
+    assert row.level == "warn"
+    assert row.user_id == 123
+    assert "before.heic" in (row.details or "")
+    assert "ECONNABORTED" in (row.details or "")
+    assert "2 файл" in (row.message or "")
+    assert "5.6 МБ" in (row.message or "")
+
+
+def test_client_log_deduped_within_window(player_client, db):
+    from models import Log
+
+    assert player_client.post("/api/client-log", json=_client_log_payload()).status_code == 200
+    assert player_client.post("/api/client-log", json=_client_log_payload()).status_code == 200
+
+    assert db.query(Log).filter(Log.event == "report_upload_failed").count() == 1
+
+
+def test_client_log_requires_auth(raw_client):
+    assert raw_client.post("/api/client-log", json=_client_log_payload()).status_code == 401
+
+
 def test_admin_logs_skip_401_and_info(raw_client, db):
     from models import Log
 

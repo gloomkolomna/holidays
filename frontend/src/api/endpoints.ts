@@ -559,6 +559,16 @@ export const api = {
       .then((r) => r.data);
   },
 
+  clientLog(payload: {
+    event: string;
+    elapsed_ms: number;
+    code: string;
+    task_id: number | null;
+    files: { name: string; size: number; type: string }[];
+  }): Promise<void> {
+    return client.post('/client-log', payload).then(() => undefined);
+  },
+
   adminGameState(): Promise<{ game_open: boolean }> {
     return client.get('/admin/settings/game').then((r) => r.data);
   },
