@@ -10,6 +10,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
+      setMusic(user.music_enabled !== false);
       api.myReports().then(setReports).catch(() => setReports([]));
     }
   }, [user]);
