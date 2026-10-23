@@ -473,6 +473,7 @@ export const api = {
       return client
         .post(`/game/tasks/${taskId}/report`, form, {
           headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000,
         })
         .then((r) => r.data);
     });
