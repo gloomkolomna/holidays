@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isAlreadyAccepted, isNetworkError } from '../utils/upload';
+import { isAlreadyAccepted, isNetworkError, maxAttemptsFor } from '../utils/upload';
 
 describe('isNetworkError', () => {
   it('true только для сетевой ошибки без ответа', () => {
@@ -28,5 +28,14 @@ describe('isAlreadyAccepted', () => {
     expect(isAlreadyAccepted({ response: { status: 500 } }, 2)).toBe(false);
     expect(isAlreadyAccepted({ code: 'ERR_NETWORK' }, 2)).toBe(false);
     expect(isAlreadyAccepted(null, 2)).toBe(false);
+  });
+});
+
+describe('maxAttemptsFor', () => {
+  it('3 попытки для обычного тела, 2 для тяжёлого (>5 МБ)', () => {
+    expect(maxAttemptsFor(1024)).toBe(3);
+    expect(maxAttemptsFor(5 * 1024 * 1024)).toBe(3);
+    expect(maxAttemptsFor(5 * 1024 * 1024 + 1)).toBe(2);
+    expect(maxAttemptsFor(45 * 1024 * 1024)).toBe(2);
   });
 });

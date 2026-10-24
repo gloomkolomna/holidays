@@ -4,14 +4,30 @@ const API_BASE = window.location.origin + '/holidays/api';
 const TOKEN_KEY = 'token';
 let lastToken: string | null = null;
 
+function readStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getToken(): string | null {
+  return readStoredToken() ?? lastToken;
+}
+
 export function saveToken(token: string) {
   lastToken = token;
-  localStorage.setItem(TOKEN_KEY, token);
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch {}
 }
 
 export function clearToken() {
   lastToken = null;
-  localStorage.removeItem(TOKEN_KEY);
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {}
 }
 
 const client = axios.create({
@@ -21,7 +37,7 @@ const client = axios.create({
 });
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY) ?? lastToken;
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

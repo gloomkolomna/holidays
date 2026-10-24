@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import client, { clearToken, saveToken } from '../api/client';
+import client, { clearToken, getToken, saveToken } from '../api/client';
 import { useVkBridge } from './VkBridgeContext';
 import type { MeUser } from '../api/endpoints';
 
@@ -23,8 +23,6 @@ const SessionContext = createContext<SessionState>({
   refresh: async () => {},
 });
 
-const TOKEN_KEY = 'token';
-
 function extractError(e: any): { message: string | null; code: string | null } {
   const detail = e?.response?.data?.detail;
   if (detail && typeof detail === 'object') {
@@ -36,7 +34,7 @@ function extractError(e: any): { message: string | null; code: string | null } {
 export function SessionProvider({ children }: { children: ReactNode }) {
   const { vkUserId, loading: vkLoading, launchParams } = useVkBridge();
   const [user, setUser] = useState<MeUser | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY));
+  const [token, setToken] = useState<string | null>(getToken());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);

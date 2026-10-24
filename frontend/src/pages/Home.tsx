@@ -28,6 +28,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [justCollected, setJustCollected] = useState<string | null>(null);
   const [newDayNotice, setNewDayNotice] = useState(false);
+  const [acceptedNotice, setAcceptedNotice] = useState(false);
   const [zoomImg, setZoomImg] = useState<string | null>(null);
   const [askAbandon, setAskAbandon] = useState(false);
   const swiperRef = useRef<SwiperClass | null>(null);
@@ -78,6 +79,12 @@ export default function Home() {
   }, [newDayNotice]);
 
   useEffect(() => {
+    if (!acceptedNotice) return;
+    const t = setTimeout(() => setAcceptedNotice(false), 6000);
+    return () => clearTimeout(t);
+  }, [acceptedNotice]);
+
+  useEffect(() => {
     applySurfaceColor(holiday?.bg_color);
     return () => applySurfaceColor(null);
   }, [holiday?.bg_color]);
@@ -117,6 +124,7 @@ export default function Home() {
         sagaFile,
       );
       if (res.collected) setJustCollected(state.active_task.card.title);
+      if (res.accepted) setAcceptedNotice(true);
       setAmount('');
       setBeforeFile(null);
       setAfterFile(null);
@@ -407,6 +415,13 @@ export default function Home() {
         <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center' }}>
           <div style={{ fontSize: 30 }}>🗓✨</div>
           Начался новый день — карточки обновились
+        </div>
+      )}
+
+      {acceptedNotice && (
+        <div className="fm-card fm-pop" style={{ marginBottom: 12, textAlign: 'center' }}>
+          <div style={{ fontSize: 30 }}>✅</div>
+          Отчёт уже принят
         </div>
       )}
 

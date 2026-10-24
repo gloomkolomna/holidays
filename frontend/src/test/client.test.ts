@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AxiosError } from 'axios';
 import client, { clearToken, saveToken, setVkLaunchInfo } from '../api/client';
 
@@ -138,5 +138,29 @@ describe('axios client — 401 auto-relogin', () => {
     expect(meAuth[1]).toBe('Bearer NEW');
     expect(sessionCalls).toBe(1);
     expect(localStorage.getItem('token')).toBe('NEW');
+  });
+
+  it('saveToken не падает и сохраняет память, когда хранилище блокировано', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota exceeded', 'QuotaExceededError');
+    });
+    expect(() => saveToken('T2')).not.toThrow();
+    setItem.mockRestore();
+    localStorage.clear();
+    setVkLaunchInfo(null, {});
+    const meAuth: string[] = [];
+
+    withAdapter((config) => {
+      if (config.url.includes('/me')) {
+        meAuth.push(config.headers?.Authorization || '');
+        return { status: 200, data: { vk_id: 123 }, statusText: 'OK', headers: {}, config };
+      }
+      return { status: 404, data: {}, statusText: 'NF', headers: {}, config };
+    });
+
+    const res = await client.get('/me');
+
+    expect(res.status).toBe(200);
+    expect(meAuth[0]).toBe('Bearer T2');
   });
 });
