@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { AxiosError } from 'axios';
-import client, { setVkLaunchInfo } from '../api/client';
+import client, { clearToken, saveToken, setVkLaunchInfo } from '../api/client';
 
 function withAdapter(handler: (config: any) => any) {
   (client.defaults as any).adapter = async (config: any) => {
@@ -21,6 +21,7 @@ function withAdapter(handler: (config: any) => any) {
 
 describe('axios client — 401 auto-relogin', () => {
   beforeEach(() => {
+    clearToken();
     localStorage.clear();
     setVkLaunchInfo(null, {});
   });
@@ -103,5 +104,39 @@ describe('axios client — 401 auto-relogin', () => {
     expect(meCalls).toBe(1);
     expect(sessionCalls).toBe(0);
     expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('falls back to in-memory token when webview wipes localStorage', async () => {
+    saveToken('T1');
+    localStorage.clear();
+    setVkLaunchInfo(123, { sign: 'sig' });
+    let meCalls = 0;
+    let sessionCalls = 0;
+    const meAuth: string[] = [];
+
+    withAdapter((config) => {
+      const url: string = config.url || '';
+      if (url.includes('/auth/session')) {
+        sessionCalls++;
+        return { status: 200, data: { token: 'NEW' }, statusText: 'OK', headers: {}, config };
+      }
+      if (url.includes('/me')) {
+        meCalls++;
+        meAuth.push(config.headers?.Authorization || '');
+        if (meCalls === 1) {
+          return { status: 401, data: { detail: 'expired' }, statusText: 'Unauthorized', headers: {}, config };
+        }
+        return { status: 200, data: { vk_id: 123 }, statusText: 'OK', headers: {}, config };
+      }
+      return { status: 404, data: {}, statusText: 'NF', headers: {}, config };
+    });
+
+    const res = await client.get('/me');
+
+    expect(res.status).toBe(200);
+    expect(meAuth[0]).toBe('Bearer T1');
+    expect(meAuth[1]).toBe('Bearer NEW');
+    expect(sessionCalls).toBe(1);
+    expect(localStorage.getItem('token')).toBe('NEW');
   });
 });

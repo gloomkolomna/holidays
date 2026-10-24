@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import client from '../api/client';
+import client, { clearToken, saveToken } from '../api/client';
 import { useVkBridge } from './VkBridgeContext';
 import type { MeUser } from '../api/endpoints';
 
@@ -52,7 +52,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const res = await client.post('/auth/session', { params: { ...launchParams, vk_user_id: String(vkUserId) } });
         if (cancelled) return;
         const t = res.data.token as string;
-        localStorage.setItem(TOKEN_KEY, t);
+        saveToken(t);
         setToken(t);
         setError(null);
         setErrorCode(null);
@@ -103,7 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [token, user]);
 
   function logout() {
-    localStorage.removeItem(TOKEN_KEY);
+    clearToken();
     setToken(null);
     setUser(null);
   }
@@ -113,7 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const res = await client.post('/auth/session', {
         params: { ...launchParams, vk_user_id: String(vkUserId) },
       });
-      localStorage.setItem(TOKEN_KEY, res.data.token);
+      saveToken(res.data.token);
       setToken(res.data.token);
       setError(null);
       setErrorCode(null);

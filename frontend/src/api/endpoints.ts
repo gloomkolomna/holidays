@@ -1,5 +1,6 @@
 import client from './client';
 import { compressImageSafe } from './media';
+import { isAlreadyAccepted, isNetworkError, type SentFileStat } from '../utils/upload';
 
 export interface MeUser {
   vk_id: number;
@@ -449,7 +450,7 @@ export const api = {
     return client.post(`/game/tasks/${taskId}/abandon`).then(() => undefined);
   },
 
-  reportTask(
+  async reportTask(
     taskId: number,
     amount: number,
     before: File,
@@ -458,25 +459,56 @@ export const api = {
     preview?: File | null,
     saga?: File | null,
   ): Promise<{ ok: boolean; card_id: number; collected: boolean; mode: string }> {
-    const compresses: Promise<File>[] = [compressImageSafe(before), compressImageSafe(after)];
-    if (preview) compresses.push(compressImageSafe(preview));
-    if (saga) compresses.push(compressImageSafe(saga));
-    return Promise.all(compresses).then((files) => {
-      const [b, a, p, s] = files;
+    const fields: [string, File][] = [
+      ['photo_before', before],
+      ['photo_after', after],
+      ...(preview ? [['photo_preview', preview] as [string, File]] : []),
+      ...(saga ? [['photo_saga', saga] as [string, File]] : []),
+    ];
+    const buildForm = async () => {
       const form = new FormData();
       form.append('amount', String(amount));
       form.append('mode', mode);
-      form.append('photo_before', b);
-      form.append('photo_after', a);
-      if (p) form.append('photo_preview', p);
-      if (s) form.append('photo_saga', s);
-      return client
-        .post(`/game/tasks/${taskId}/report`, form, {
+      const sent: SentFileStat[] = [];
+      for (const [key, file] of fields) {
+        const result = await compressImageSafe(file);
+        form.append(key, result.file);
+        sent.push({
+          name: result.file.name,
+          size: result.file.size,
+          type: result.file.type,
+          compressed: result.compressed,
+        });
+      }
+      return { form, sent };
+    };
+    const post = async (attempt: number) => {
+      const { form, sent } = await buildForm();
+      let uploaded = 0;
+      try {
+        const r = await client.post(`/game/tasks/${taskId}/report`, form, {
           headers: { 'Content-Type': 'multipart/form-data' },
           timeout: 120000,
-        })
-        .then((r) => r.data);
-    });
+          onUploadProgress: (ev) => { uploaded = Math.max(uploaded, ev.loaded); },
+        });
+        return r.data;
+      } catch (e: any) {
+        e.uploadMeta = { attempts: attempt, uploadedBytes: uploaded, sent };
+        throw e;
+      }
+    };
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return await post(attempt);
+      } catch (e: any) {
+        if (isAlreadyAccepted(e, attempt)) {
+          return { ok: true, card_id: 0, collected: false, mode };
+        }
+        if (!isNetworkError(e) || attempt === 3) throw e;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+    }
+    throw new Error('unreachable');
   },
 
   collection(holidayId: number): Promise<Collection> {
@@ -565,6 +597,9 @@ export const api = {
     code: string;
     task_id: number | null;
     files: { name: string; size: number; type: string }[];
+    sent?: SentFileStat[];
+    uploaded_bytes?: number;
+    attempts?: number;
   }): Promise<void> {
     return client.post('/client-log', payload).then(() => undefined);
   },

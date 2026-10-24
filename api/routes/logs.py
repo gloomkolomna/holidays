@@ -50,12 +50,19 @@ class ClientFileStat(BaseModel):
     type: str = Field(default="", max_length=60)
 
 
+class SentFileStat(ClientFileStat):
+    compressed: bool = Field(default=False)
+
+
 class ClientLogIn(BaseModel):
     event: str = Field(max_length=60)
     elapsed_ms: int = Field(default=0, ge=0, le=3_600_000)
     code: str = Field(default="", max_length=40)
     task_id: int | None = None
     files: list[ClientFileStat] = Field(default_factory=list, max_length=10)
+    sent: list[SentFileStat] = Field(default_factory=list, max_length=10)
+    uploaded_bytes: int = Field(default=0, ge=0, le=10_000_000_000)
+    attempts: int = Field(default=1, ge=1, le=10)
 
 
 def _fmt_size(total: int) -> str:
@@ -86,15 +93,23 @@ def post_client_log(
     if recent is None:
         total = sum(f.size for f in data.files)
         formats = "/".join(sorted({f.type or "?" for f in data.files})) or "нет файлов"
+        sent_total = sum(f.size for f in data.sent)
+        sent_note = f", на провод {_fmt_size(sent_total)}" if data.sent else ""
+        fallback = sum(1 for f in data.sent if not f.compressed)
+        fallback_note = f", откат сжатия: {fallback}" if data.sent and fallback else ""
         record_log(
             source="client", level="warn", event=data.event,
             method="POST", path="/api/client-log",
             message=(
                 f"Клиент не смог отправить отчёт: {len(data.files)} файл(ов), "
-                f"{_fmt_size(total)}, {formats}, {data.elapsed_ms} мс, код {data.code or 'нет'}"
+                f"{_fmt_size(total)}, {formats}, {data.elapsed_ms} мс, код {data.code or 'нет'}, "
+                f"попыток {data.attempts}, загружено {_fmt_size(data.uploaded_bytes)}{sent_note}{fallback_note}"
             ),
             details={
                 "files": [f.model_dump() for f in data.files],
+                "sent": [f.model_dump() for f in data.sent],
+                "uploaded_bytes": data.uploaded_bytes,
+                "attempts": data.attempts,
                 "elapsed_ms": data.elapsed_ms,
                 "code": data.code,
                 "task_id": data.task_id,

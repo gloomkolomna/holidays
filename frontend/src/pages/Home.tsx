@@ -12,6 +12,7 @@ import MusicPlayer from '../components/MusicPlayer';
 import ParticlesBackground from '../components/ParticlesBackground';
 import { useSession } from '../context/SessionContext';
 import { msUntilNextMskMidnight } from '../utils/mskTime';
+import type { UploadFailMeta } from '../utils/upload';
 import { applySurfaceColor } from '../theme';
 
 function dayLabel(day: string): string {
@@ -105,6 +106,7 @@ export default function Home() {
     setError(null);
     const startedAt = Date.now();
     try {
+      await api.me().catch(() => {});
       const res = await api.reportTask(
         state.active_task.id,
         Number(amount),
@@ -125,6 +127,7 @@ export default function Home() {
       if (e?.response) setError(errorMessage(e, 'Не удалось отправить отчёт — попробуйте ещё раз'));
       else {
         setError('Нет связи с сервером — проверьте интернет и попробуйте ещё раз');
+        const meta = e?.uploadMeta as UploadFailMeta | undefined;
         api.clientLog({
           event: 'report_upload_failed',
           elapsed_ms: Date.now() - startedAt,
@@ -133,6 +136,9 @@ export default function Home() {
           files: [beforeFile, afterFile, previewFile, sagaFile]
             .filter((f): f is File => !!f)
             .map((f) => ({ name: f.name, size: f.size, type: f.type })),
+          sent: meta?.sent ?? [],
+          uploaded_bytes: meta?.uploadedBytes ?? 0,
+          attempts: meta?.attempts ?? 1,
         }).catch(() => {});
       }
     } finally {

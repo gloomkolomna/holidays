@@ -6,7 +6,7 @@ export function mediaUrl(path: string | null | undefined): string {
   return `${BASE}${path}`;
 }
 
-export function compressImage(file: File, maxSize = 1280, quality = 0.85): Promise<File> {
+export function compressImage(file: File, maxSize = 1100, quality = 0.8): Promise<File> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -36,6 +36,8 @@ export function compressImage(file: File, maxSize = 1280, quality = 0.85): Promi
   });
 }
 
-export function compressImageSafe(file: File, maxSize = 1280, quality = 0.85): Promise<File> {
-  return compressImage(file, maxSize, quality).catch(() => file);
+export function compressImageSafe(file: File, maxSize = 1100, quality = 0.8): Promise<{ file: File; compressed: boolean }> {
+  return compressImage(file, maxSize, quality)
+    .then((result) => ({ file: result, compressed: true }))
+    .catch(() => ({ file, compressed: false }));
 }

@@ -160,6 +160,44 @@ def test_client_log_requires_auth(raw_client):
     assert raw_client.post("/api/client-log", json=_client_log_payload()).status_code == 401
 
 
+def test_client_log_extended_payload(player_client, db):
+    import json
+
+    from models import Log
+
+    payload = _client_log_payload() | {
+        "attempts": 3,
+        "uploaded_bytes": 1_200_000,
+        "sent": [
+            {"name": "before.jpg", "size": 600_000, "type": "image/jpeg", "compressed": True},
+            {"name": "after.heic", "size": 5_000_000, "type": "image/heic", "compressed": False},
+        ],
+    }
+
+    resp = player_client.post("/api/client-log", json=payload)
+    assert resp.status_code == 200
+
+    row = db.query(Log).filter(Log.event == "report_upload_failed").one()
+    assert "2 файл" in row.message
+    assert "5.6 МБ" in row.message
+    assert "попыток 3" in row.message
+    assert "загружено 1.1 МБ" in row.message
+    assert "на провод 5.3 МБ" in row.message
+    assert "откат сжатия: 1" in row.message
+
+    details = json.loads(row.details or "{}")
+    assert details["uploaded_bytes"] == 1_200_000
+    assert details["attempts"] == 3
+    assert len(details["sent"]) == 2
+    assert details["sent"][0]["compressed"] is True
+    assert details["sent"][1]["compressed"] is False
+
+
+def test_client_log_rejects_bad_attempts(player_client):
+    payload = _client_log_payload() | {"attempts": 0}
+    assert player_client.post("/api/client-log", json=payload).status_code == 422
+
+
 def test_admin_logs_skip_401_and_info(raw_client, db):
     from models import Log
 
