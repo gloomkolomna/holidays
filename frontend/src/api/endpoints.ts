@@ -82,17 +82,22 @@ export interface HolidayInput {
   shop_enabled: boolean;
 }
 
+export interface GameTask {
+  id: number;
+  kind: string;
+  required_crosses: number;
+  card: HolidayCard;
+}
+
 export interface GameState {
   holiday_id: number | null;
   holiday_title: string | null;
   day: string;
   today_cards: { card: HolidayCard; collected: boolean; is_current: boolean }[];
-  active_task: {
-    id: number;
-    kind: string;
-    required_crosses: number;
-    card: HolidayCard;
-  } | null;
+  active_task: GameTask | null;
+  active_tasks: GameTask[];
+  extra_task_active: boolean;
+  can_take_task: boolean;
   collected_count: number;
   cards_total: number;
 }
@@ -163,6 +168,9 @@ export interface Shop {
   active_holiday_ends_at: string | null;
   holidays: ShopHoliday[];
   has_active_task: boolean;
+  active_task_count: number;
+  extra_task_active: boolean;
+  can_take_task: boolean;
   penalty_crosses: number;
 }
 
@@ -178,18 +186,34 @@ export interface Trophy {
 
 export interface RewardItem {
   id: number;
+  preset_key: string;
+  effect_type: string;
+  effect_config: { percent?: number };
   title: string;
   description: string | null;
   image_url: string | null;
   price_crystals: number;
-  codes_available: number;
+  is_active: boolean;
 }
 
 export interface Purchase {
   id: number;
+  item_id: number | null;
   item_title: string;
-  code: string;
+  status: 'available' | 'active' | 'used' | 'revoked';
+  effect_type: string;
+  effect_config: { percent?: number };
   created_at: string;
+  used_at: string | null;
+  target_card_id: number | null;
+  target_task_id: number | null;
+  external_reference: string | null;
+  last_error: string | null;
+}
+
+export interface AdminRewardPurchase extends Purchase {
+  user_id: number;
+  display_name: string | null;
 }
 
 export interface Rewards {
@@ -268,6 +292,7 @@ export interface InfoBlock {
 export interface PlayerDetail {
   player: PlayerEntry;
   active_task: PlayerTaskEntry | null;
+  active_tasks: PlayerTaskEntry[];
   cards: PlayerCardEntry[];
   reports: PlayerReportEntry[];
 }
@@ -277,13 +302,6 @@ export interface DailyStats {
   total_cards: number;
   total_players: number;
   rows: DailyStatRow[];
-}
-
-export interface RewardCodeEntry {
-  id: number;
-  code: string;
-  taken_by: number | null;
-  taken_at: string | null;
 }
 
 export const api = {
@@ -525,24 +543,20 @@ export const api = {
     return client.get('/rewards').then((r) => r.data);
   },
 
-  buyReward(itemId: number): Promise<{ ok: boolean; purchase_id: number; code: string; crystals_left: number }> {
+  buyReward(itemId: number): Promise<{ ok: boolean; purchase_id: number; crystals_left: number }> {
     return client.post('/rewards/buy', { item_id: itemId }).then((r) => r.data);
+  },
+
+  useReward(purchaseId: number, data: { card_id?: number; task_id?: number } = {}): Promise<{ ok: boolean; status: string }> {
+    return client.post(`/rewards/purchases/${purchaseId}/use`, data).then((r) => r.data);
   },
 
   adminRewardItems(): Promise<RewardItem[]> {
     return client.get('/admin/rewards/items').then((r) => r.data);
   },
 
-  adminCreateRewardItem(data: { title: string; description?: string | null; price_crystals: number; is_active: boolean }): Promise<RewardItem> {
-    return client.post('/admin/rewards/items', data).then((r) => r.data);
-  },
-
-  adminUpdateRewardItem(itemId: number, data: { title: string; description?: string | null; price_crystals: number; is_active: boolean }): Promise<RewardItem> {
+  adminUpdateRewardItem(itemId: number, data: { title: string; description?: string | null; price_crystals: number; is_active: boolean; effect_config?: { percent?: number } }): Promise<RewardItem> {
     return client.put(`/admin/rewards/items/${itemId}`, data).then((r) => r.data);
-  },
-
-  adminDeleteRewardItem(itemId: number): Promise<void> {
-    return client.delete(`/admin/rewards/items/${itemId}`).then(() => undefined);
   },
 
   adminUploadRewardImage(itemId: number, file: File): Promise<{ image_url: string }> {
@@ -553,16 +567,12 @@ export const api = {
       .then((r) => r.data);
   },
 
-  adminAddCodes(itemId: number, codes: string[]): Promise<{ added: number; available: number }> {
-    return client.post(`/admin/rewards/items/${itemId}/codes`, { codes }).then((r) => r.data);
+  adminRewardPurchases(): Promise<AdminRewardPurchase[]> {
+    return client.get('/admin/rewards/purchases').then((r) => r.data);
   },
 
-  adminListCodes(itemId: number): Promise<RewardCodeEntry[]> {
-    return client.get(`/admin/rewards/items/${itemId}/codes`).then((r) => r.data);
-  },
-
-  adminDeleteCode(codeId: number): Promise<void> {
-    return client.delete(`/admin/rewards/codes/${codeId}`).then(() => undefined);
+  adminRevokeReward(purchaseId: number): Promise<{ ok: boolean; status: string }> {
+    return client.post(`/admin/rewards/purchases/${purchaseId}/revoke`).then((r) => r.data);
   },
 
   appearance(): Promise<Appearance> {

@@ -70,6 +70,11 @@ S3_SECRET_ACCESS_KEY = os.getenv("S3_SECRET_ACCESS_KEY", "")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "korgiholidays")
 S3_PUBLIC_URL = os.getenv("S3_PUBLIC_URL", "").rstrip("/")
 
+BESTIARY_API_URL = os.getenv("BESTIARY_API_URL", "").rstrip("/")
+BESTIARY_INTEGRATION_KEY = os.getenv("BESTIARY_INTEGRATION_KEY", "")
+ZAKAZ_API_URL = os.getenv("ZAKAZ_API_URL", "").rstrip("/")
+ZAKAZ_INTEGRATION_KEY = os.getenv("ZAKAZ_INTEGRATION_KEY", "")
+
 
 def get_admin_vk_ids() -> set[int]:
     return ADMIN_VK_IDS

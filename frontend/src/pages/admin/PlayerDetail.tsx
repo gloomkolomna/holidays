@@ -93,7 +93,8 @@ export default function PlayerDetail() {
     );
   }
 
-  const { player, active_task: task, cards, reports } = data;
+  const { player, active_task: task, active_tasks: activeTasks, cards, reports } = data;
+  const tasksToShow = activeTasks ?? (task ? [task] : []);
   const byHoliday = new Map<number, { title: string; items: PlayerCardEntry[] }>();
   for (const c of cards) {
     const group = byHoliday.get(c.holiday_id) || { title: c.holiday_title, items: [] };
@@ -140,8 +141,8 @@ export default function PlayerDetail() {
         )}
       </div>
 
-      {task ? (
-        <TaskCard task={task} onZoom={setZoomImg} />
+      {tasksToShow.length > 0 ? (
+        tasksToShow.map((row) => <TaskCard key={row.id} task={row} onZoom={setZoomImg} />)
       ) : (
         <div className="fm-card" style={{ marginTop: 12 }}>
           <h3>📌 Активное задание</h3>

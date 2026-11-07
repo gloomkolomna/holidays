@@ -53,6 +53,9 @@ class GameStateOut(BaseModel):
     day: str
     today_cards: list[DayCardOut]
     active_task: TaskOut | None
+    active_tasks: list[TaskOut]
+    extra_task_active: bool
+    can_take_task: bool
     collected_count: int
     cards_total: int
 
@@ -108,12 +111,19 @@ def _task_out(db: Session, task: Task | None) -> TaskOut | None:
 
 @router.get("/state", response_model=GameStateOut)
 def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    task = (
+    from services.reward_effects import active_effect, can_take_task
+
+    tasks = (
         db.query(Task)
         .filter(Task.user_id == user.vk_id, Task.status == "active")
-        .first()
+        .order_by(Task.taken_at, Task.id)
+        .all()
     )
+    task = tasks[0] if tasks else None
     active_task_out = _task_out(db, task)
+    active_tasks_out = [_task_out(db, row) for row in tasks]
+    extra_active = active_effect(db, user.vk_id, "extra_active_task") is not None
+    can_take = can_take_task(db, user.vk_id)
 
     holiday = get_active_holiday(db)
     if holiday is None:
@@ -123,12 +133,15 @@ def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_
             day=today_msk().isoformat(),
             today_cards=[],
             active_task=active_task_out,
+            active_tasks=active_tasks_out,
+            extra_task_active=extra_active,
+            can_take_task=can_take,
             collected_count=0,
             cards_total=0,
         )
 
     collected = collected_card_ids(db, user.vk_id)
-    active_card_ids = {task.card_id} if task else set()
+    active_card_ids = {row.card_id for row in tasks}
 
     today_out = [
         DayCardOut(
@@ -147,6 +160,9 @@ def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_
         day=today_msk().isoformat(),
         today_cards=today_out,
         active_task=active_task_out,
+        active_tasks=active_tasks_out,
+        extra_task_active=extra_active,
+        can_take_task=can_take,
         collected_count=len(collected & filled_ids),
         cards_total=len(filled_ids),
     )
@@ -154,6 +170,11 @@ def get_state(user: User = Depends(get_current_user), db: Session = Depends(get_
 
 @router.post("/cards/{card_id}/take", response_model=TaskOut)
 def take_card(card_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from services.reward_effects import can_take_task
+
+    if db.get_bind().dialect.name == "sqlite":
+        db.rollback()
+        db.connection().exec_driver_sql("BEGIN IMMEDIATE")
     card = (
         db.query(HolidayCard)
         .filter(HolidayCard.id == card_id)
@@ -172,7 +193,7 @@ def take_card(card_id: int, user: User = Depends(get_current_user), db: Session 
     if db.query(UserCard).filter(UserCard.user_id == user.vk_id, UserCard.card_id == card.id).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Эта карточка уже в коллекции")
 
-    if has_active_task(db, user.vk_id):
+    if not can_take_task(db, user.vk_id):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Сначала сдайте текущее задание — новое взять нельзя",
@@ -244,6 +265,8 @@ def report_task(
     db: Session = Depends(get_db),
 ):
     task = _get_own_task(db, user, task_id)
+    from services.reward_effects import active_task_count
+    tasks_before_report = active_task_count(db, user.vk_id)
     if task.status != "active":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Задание уже закрыто")
     if mode not in ("norm", "penalty"):
@@ -326,6 +349,8 @@ def report_task(
             db.flush()
             ensure_collection_reward(db, user.vk_id, category_id)
 
+    from services.reward_effects import finish_extra_task_effect
+    finish_extra_task_effect(db, user.vk_id, tasks_before_report)
     db.commit()
 
     return {

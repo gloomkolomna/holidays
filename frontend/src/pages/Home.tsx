@@ -33,6 +33,7 @@ export default function Home() {
   const [askAbandon, setAskAbandon] = useState(false);
   const swiperRef = useRef<SwiperClass | null>(null);
   const [nav, setNav] = useState({ idx: 0, beg: true, end: false });
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
 
   const [amount, setAmount] = useState('');
   const [beforeFile, setBeforeFile] = useState<File | null>(null);
@@ -154,7 +155,8 @@ export default function Home() {
     }
   }
 
-  const task = state?.active_task ?? null;
+  const tasks = state?.active_tasks ?? (state?.active_task ? [state.active_task] : []);
+  const task = tasks.find((row) => row.id === selectedTaskId) ?? tasks[0] ?? null;
   const isPenaltyTask = task?.kind === 'penalty';
   const holidayActive = state?.holiday_id != null;
   const abandonText = holidayActive
@@ -214,7 +216,20 @@ export default function Home() {
 
   const taskBlock = task ? (
     <div className="fm-card" style={{ marginTop: 12 }}>
-      <h3>Активное задание</h3>
+      <h3>{tasks.length > 1 ? 'Активные задания' : 'Активное задание'}</h3>
+      {tasks.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {tasks.map((row) => (
+            <button
+              key={row.id}
+              className={`fm-btn fm-btn-sm ${row.id === task.id ? '' : 'fm-btn-outline'}`}
+              onClick={() => setSelectedTaskId(row.id)}
+            >
+              {row.card.title}
+            </button>
+          ))}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         {task.card.image_url ? (
           <img
@@ -308,7 +323,7 @@ export default function Home() {
         </div>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
           {isPenaltyTask
-            ? 'Выкупленное задание сдаётся по норме 1000 крестиков — отказаться от него нельзя.'
+            ? `Выкупленное задание сдаётся по норме ${task.required_crosses} крестиков — отказаться от него нельзя.`
             : 'Фото «до» и «после» обязательны, «превью» и «сага» — по желанию. «Штраф» закрывает задание двойной нормой.'}
         </p>
         {!isPenaltyTask && (
@@ -322,7 +337,9 @@ export default function Home() {
         )}
         {holidayActive && !isPenaltyTask && (
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-            Пока задание не сдано, другую карточку принять нельзя — или откажитесь от него.
+            {state?.can_take_task
+              ? 'Награда «Второе задание» позволяет принять ещё одну карточку.'
+              : 'Пока задание не сдано, другую карточку принять нельзя — или откажитесь от него.'}
           </p>
         )}
       </div>
@@ -510,7 +527,7 @@ export default function Home() {
                     ) : (
                       <button
                         className="fm-btn"
-                        disabled={busy || !!task}
+                        disabled={busy || !state.can_take_task}
                         onClick={() => take(card.id)}
                       >
                         Принять
@@ -542,7 +559,7 @@ export default function Home() {
               </button>
             </div>
           )}
-          {task && (
+          {task && !state.can_take_task && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginTop: 6 }}>
               Остальные карточки дня доступны после сдачи текущего задания.
             </p>

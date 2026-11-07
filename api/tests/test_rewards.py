@@ -1,14 +1,9 @@
-import datetime
-
-import pytest
-from sqlalchemy.exc import IntegrityError
-
-from models import CollectionReward, RewardCode, RewardItem, RewardPurchase, User
+from models import CollectionReward, RewardItem, RewardPurchase, User
 from services.msk_time import now_msk
 from services.rewards import ensure_collection_reward
 from tests.conftest import make_user_client
 from tests.test_holidays import _multi_day_holiday_payload, _png_bytes
-from tests.test_shop import _finished_holiday, _shop_now_at
+from tests.test_shop import _finished_holiday
 
 
 def _active_holiday_one_card(admin_client, title="Короткий"):
@@ -42,14 +37,12 @@ def test_full_category_awards_crystal_and_trophy(admin_client, db, uploads_tmp):
             },
         )
         assert resp.status_code == 200
-
         rewards = player.get("/api/rewards").json()
 
     assert rewards["crystals"] == 1
     assert len(rewards["trophies"]) == 1
     assert rewards["trophies"][0]["holiday_id"] == hid
     assert rewards["trophies"][0]["category_id"] == cat_id
-
     assert ensure_collection_reward(db, 123, cat_id) is False
     assert db.query(CollectionReward).filter_by(user_id=123, category_id=cat_id).count() == 1
 
@@ -70,7 +63,6 @@ def test_category_reward_per_category_independent(admin_client, db):
     assert ensure_collection_reward(db, 555, cat1["id"]) is True
     assert ensure_collection_reward(db, 555, cat1["id"]) is False
     assert ensure_collection_reward(db, 555, cat2["id"]) is False
-
     user = db.query(User).filter(User.vk_id == 555).first()
     assert user.crystals == 1
     assert db.query(CollectionReward).filter_by(user_id=555).count() == 1
@@ -78,7 +70,6 @@ def test_category_reward_per_category_independent(admin_client, db):
     db.add(__import__("models").UserCard(user_id=555, card_id=card2["id"]))
     db.commit()
     assert ensure_collection_reward(db, 555, cat2["id"]) is True
-
     user = db.query(User).filter(User.vk_id == 555).first()
     assert user.crystals == 2
     assert db.query(CollectionReward).filter_by(user_id=555).count() == 2
@@ -95,153 +86,80 @@ def test_partial_category_no_award(admin_client, db):
     assert ensure_collection_reward(db, 777, cat_id) is False
 
 
-def _make_item(admin_client, title="Промокод Фермы", price=1, codes=("FARM-100", "FARM-200")):
-    item = admin_client.post(
-        "/api/admin/rewards/items",
-        json={"title": title, "description": "Бонус в «Ферме»", "price_crystals": price},
-    ).json()
-    admin_client.post(f"/api/admin/rewards/items/{item['id']}/codes", json={"codes": list(codes)})
+def _preset(admin_client, key="second_task", price=None):
+    item = next(row for row in admin_client.get("/api/admin/rewards/items").json() if row["preset_key"] == key)
+    if price is not None:
+        item = admin_client.put(
+            f"/api/admin/rewards/items/{item['id']}",
+            json={"title": item["title"], "description": item["description"], "price_crystals": price, "is_active": True},
+        ).json()
     return item
 
 
 def test_buy_item_happy_path(admin_client, db, uploads_tmp):
-    hid, cat_id, card_id = _active_holiday_one_card(admin_client)
-    item = _make_item(admin_client)
+    _, _, card_id = _active_holiday_one_card(admin_client)
+    item = _preset(admin_client)
     with make_user_client(123) as player:
         task = player.post(f"/api/game/cards/{card_id}/take").json()
         player.post(
             f"/api/game/tasks/{task['id']}/report",
             data={"amount": "300", "mode": "norm"},
-            files={
-                "photo_before": ("b.png", _png_bytes(), "image/png"),
-                "photo_after": ("a.png", _png_bytes(), "image/png"),
-            },
+            files={"photo_before": ("b.png", _png_bytes(), "image/png"), "photo_after": ("a.png", _png_bytes(), "image/png")},
         )
         resp = player.post("/api/rewards/buy", json={"item_id": item["id"]})
         assert resp.status_code == 200
         assert resp.json()["crystals_left"] == 0
-        assert resp.json()["code"] == "FARM-100"
-
+        assert "code" not in resp.json()
         rewards = player.get("/api/rewards").json()
+
     assert rewards["crystals"] == 0
     assert len(rewards["purchases"]) == 1
-    assert rewards["purchases"][0]["code"] == "FARM-100"
-    assert rewards["items"][0]["codes_available"] == 1
+    assert rewards["purchases"][0]["status"] == "available"
+    assert rewards["purchases"][0]["effect_type"] == "extra_active_task"
 
 
 def test_buy_insufficient_crystals(admin_client):
-    item = _make_item(admin_client, price=5)
+    item = _preset(admin_client, price=5)
     with make_user_client(123) as player:
         resp = player.post("/api/rewards/buy", json={"item_id": item["id"]})
     assert resp.status_code == 400
     assert "кристалл" in resp.json()["detail"]
 
 
-def test_buy_out_of_codes(admin_client, db):
-    item = _make_item(admin_client, codes=("ONLY-1",))
-    db.add(User(vk_id=123, role="player", crystals=10))
+def test_repeat_purchases_do_not_need_codes(admin_client, db):
+    item = _preset(admin_client)
+    db.add(User(vk_id=123, role="player", crystals=5))
     db.commit()
     with make_user_client(123) as player:
         assert player.post("/api/rewards/buy", json={"item_id": item["id"]}).status_code == 200
-        resp = player.post("/api/rewards/buy", json={"item_id": item["id"]})
-    assert resp.status_code == 400
-    assert "распродан" in resp.json()["detail"]
-
-
-def test_buy_last_code_two_players_one_wins(admin_client, db):
-    item = _make_item(admin_client, price=1, codes=("LAST-1",))
-    db.add(User(vk_id=123, role="player", crystals=5))
-    db.add(User(vk_id=456, role="player", crystals=5))
-    db.commit()
-    with make_user_client(123) as first:
-        assert first.post("/api/rewards/buy", json={"item_id": item["id"]}).status_code == 200
-    with make_user_client(456) as second:
-        resp = second.post("/api/rewards/buy", json={"item_id": item["id"]})
-    assert resp.status_code == 400
-    assert "распродан" in resp.json()["detail"]
-    assert db.query(User).filter(User.vk_id == 456).first().crystals == 5
+        assert player.post("/api/rewards/buy", json={"item_id": item["id"]}).status_code == 200
     purchases = db.query(RewardPurchase).all()
-    assert len(purchases) == 1
-    assert purchases[0].user_id == 123
+    assert len(purchases) == 2
+    assert all(purchase.code_id is None for purchase in purchases)
+    assert db.query(User).filter(User.vk_id == 123).first().crystals == 3
 
 
-def test_duplicate_codes_ignored_on_add(admin_client):
-    item = _make_item(admin_client, codes=("DUP-1",))
-    resp = admin_client.post(
-        f"/api/admin/rewards/items/{item['id']}/codes",
-        json={"codes": ["DUP-1", " DUP-2 ", "DUP-2", ""]},
-    ).json()
-    assert resp["added"] == 1
-    assert resp["available"] == 2
-
-
-def test_db_rejects_second_purchase_for_same_code(admin_client, db):
-    item = _make_item(admin_client, codes=("U-1",))
-    code = db.query(RewardCode).filter(RewardCode.item_id == item["id"]).first()
-    db.add(RewardPurchase(user_id=123, item_id=item["id"], code_id=code.id))
-    db.commit()
-    db.add(RewardPurchase(user_id=123, item_id=item["id"], code_id=code.id))
-    with pytest.raises(IntegrityError):
-        db.commit()
-    db.rollback()
-
-
-def test_db_rejects_duplicate_item_code(admin_client, db):
-    item = _make_item(admin_client, codes=("R-1",))
-    db.add(RewardCode(item_id=item["id"], code="R-1"))
-    with pytest.raises(IntegrityError):
-        db.commit()
-    db.rollback()
-
-
-def test_admin_items_crud_and_codes(admin_client):
-    item = admin_client.post(
-        "/api/admin/rewards/items",
-        json={"title": "Тест", "price_crystals": 2},
-    ).json()
-    assert item["codes_available"] == 0
-
-    added = admin_client.post(
-        f"/api/admin/rewards/items/{item['id']}/codes",
-        json={"codes": ["A-1", "A-2", ""]},
-    ).json()
-    assert added["added"] == 2
-    assert added["available"] == 2
-
+def test_admin_cannot_create_or_delete_presets(admin_client):
+    item = _preset(admin_client)
+    assert admin_client.post("/api/admin/rewards/items", json={"title": "Ручная"}).status_code == 405
+    assert admin_client.delete(f"/api/admin/rewards/items/{item['id']}").status_code == 405
     updated = admin_client.put(
         f"/api/admin/rewards/items/{item['id']}",
-        json={"title": "Тест2", "price_crystals": 3},
-    ).json()
-    assert updated["title"] == "Тест2"
-
-    codes = admin_client.get(f"/api/admin/rewards/items/{item['id']}/codes").json()
-    assert len(codes) == 2
-
-    code_id = codes[0]["id"]
-    assert admin_client.delete(f"/api/admin/rewards/codes/{code_id}").status_code == 200
-    assert len(admin_client.get(f"/api/admin/rewards/items/{item['id']}/codes").json()) == 1
-
-    assert admin_client.delete(f"/api/admin/rewards/items/{item['id']}").status_code == 200
-    assert admin_client.get("/api/admin/rewards/items").json() == []
+        json={"title": "Новое название", "price_crystals": 3, "is_active": True},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["title"] == "Новое название"
+    assert updated.json()["price_crystals"] == 3
 
 
-def test_taken_code_cannot_be_deleted(admin_client, db):
-    item = _make_item(admin_client, codes=("X-1",))
-    code = db.query(RewardCode).filter(RewardCode.item_id == item["id"]).first()
-    code.taken_by = 123
+def test_buy_rejects_non_preset_item(admin_client, db):
+    db.add(RewardItem(title="Старая ручная", price_crystals=1, is_active=True))
     db.commit()
-    resp = admin_client.delete(f"/api/admin/rewards/codes/{code.id}")
-    assert resp.status_code == 400
-
-
-def test_delete_item_with_purchases_forbidden(admin_client, db):
-    item = _make_item(admin_client)
+    item = db.query(RewardItem).filter_by(title="Старая ручная").one()
     db.add(User(vk_id=123, role="player", crystals=5))
     db.commit()
     with make_user_client(123) as player:
-        assert player.post("/api/rewards/buy", json={"item_id": item["id"]}).status_code == 200
-    assert admin_client.delete(f"/api/admin/rewards/items/{item['id']}").status_code == 409
-    assert [i["id"] for i in admin_client.get("/api/admin/rewards/items").json()] == [item["id"]]
+        assert player.post("/api/rewards/buy", json={"item_id": item.id}).status_code == 404
 
 
 def test_admin_forbidden_for_player(player_client):
@@ -251,9 +169,9 @@ def test_admin_forbidden_for_player(player_client):
 def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, monkeypatch):
     import routes.shop as shop_module
     from models import UserCard as UC
+    from tests.test_shop import _shop_now_at
 
     monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(5))
-
     hid, day_card_ids = _finished_holiday(admin_client, cards=("Тыква",))
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
     extra = admin_client.post(
@@ -263,7 +181,6 @@ def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, m
 
     db.add(UC(user_id=123, card_id=day_card_ids[0]))
     db.commit()
-
     assert ensure_collection_reward(db, 123, cat_id) is False
 
     with make_user_client(123) as player:
@@ -273,7 +190,6 @@ def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, m
         ]
         extra_card = [c for c in shop_cards if c["title"] == "Магазинная"][0]
         assert extra_card["id"] == extra["id"]
-
         take = player.post("/api/shop/take", json={"card_id": extra_card["id"]}).json()
         resp = player.post(
             f"/api/game/tasks/{take['task_id']}/report",
@@ -281,7 +197,6 @@ def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, m
             files={"photo_before": ("b.png", _png_bytes(), "image/png"), "photo_after": ("a.png", _png_bytes(), "image/png")},
         )
         assert resp.status_code == 200
-
         rewards = player.get("/api/rewards").json()
     assert rewards["crystals"] == 1
     assert len(rewards["trophies"]) == 1

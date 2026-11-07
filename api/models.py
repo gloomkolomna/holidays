@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -101,10 +101,6 @@ class Task(Base):
     taken_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
     done_at = Column(DateTime, nullable=True)
 
-    __table_args__ = (
-        Index("uq_tasks_one_active", "user_id", unique=True, sqlite_where=text("status = 'active'")),
-    )
-
 
 class UserCard(Base):
     __tablename__ = "user_cards"
@@ -153,6 +149,9 @@ class RewardItem(Base):
     __tablename__ = "reward_items"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    preset_key = Column(String, nullable=True, unique=True)
+    effect_type = Column(String, nullable=False, default="", server_default="")
+    effect_config = Column(Text, nullable=False, default="{}", server_default="{}")
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     image_url = Column(String, nullable=True)
@@ -180,8 +179,16 @@ class RewardPurchase(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.vk_id", ondelete="CASCADE"), nullable=False)
-    item_id = Column(Integer, ForeignKey("reward_items.id", ondelete="CASCADE"), nullable=False)
-    code_id = Column(Integer, ForeignKey("reward_codes.id", ondelete="CASCADE"), nullable=False)
+    item_id = Column(Integer, ForeignKey("reward_items.id", ondelete="CASCADE"), nullable=True)
+    code_id = Column(Integer, ForeignKey("reward_codes.id", ondelete="CASCADE"), nullable=True)
+    item_title = Column(String, nullable=False, default="", server_default="")
+    status = Column(String, nullable=False, default="available", server_default="available")
+    effect_payload = Column(Text, nullable=False, default="{}", server_default="{}")
+    used_at = Column(DateTime, nullable=True)
+    target_card_id = Column(Integer, nullable=True)
+    target_task_id = Column(Integer, nullable=True)
+    external_reference = Column(String, nullable=True)
+    last_error = Column(Text, nullable=True)
     created_at = Column(DateTime, nullable=False, default=__import__("datetime").datetime.utcnow)
 
     __table_args__ = (

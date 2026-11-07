@@ -68,6 +68,7 @@ class PlayerReportOut(BaseModel):
 class PlayerDetailOut(BaseModel):
     player: PlayerOut
     active_task: PlayerTaskOut | None
+    active_tasks: list[PlayerTaskOut]
     cards: list[PlayerCardOut]
     reports: list[PlayerReportOut]
 
@@ -150,11 +151,11 @@ def get_player(vk_id: int, db: Session = Depends(get_db)):
     holiday_titles, holiday_filled, card_to_holiday = _holiday_index(db)
     player = _player_out(db, user, holiday_titles, holiday_filled, card_to_holiday)
 
-    task = db.query(Task).filter(Task.user_id == vk_id, Task.status == "active").first()
-    active_task_out: PlayerTaskOut | None = None
-    if task is not None:
+    tasks = db.query(Task).filter(Task.user_id == vk_id, Task.status == "active").order_by(Task.taken_at, Task.id).all()
+    active_tasks_out = []
+    for task in tasks:
         card = db.query(HolidayCard).filter(HolidayCard.id == task.card_id).first()
-        active_task_out = PlayerTaskOut(
+        active_tasks_out.append(PlayerTaskOut(
             id=task.id,
             kind=task.kind,
             required_crosses=task.required_crosses,
@@ -164,7 +165,8 @@ def get_player(vk_id: int, db: Session = Depends(get_db)):
             card_task_text=card.task_text if card else None,
             card_image_url=card.image_url if card else None,
             card_day=card.day if card else None,
-        )
+        ))
+    active_task_out = active_tasks_out[0] if active_tasks_out else None
 
     rows = (
         db.query(UserCard, HolidayCard, HolidayCategory)
@@ -212,4 +214,4 @@ def get_player(vk_id: int, db: Session = Depends(get_db)):
         for report, task, card in report_rows
     ]
 
-    return PlayerDetailOut(player=player, active_task=active_task_out, cards=cards_out, reports=reports_out)
+    return PlayerDetailOut(player=player, active_task=active_task_out, active_tasks=active_tasks_out, cards=cards_out, reports=reports_out)

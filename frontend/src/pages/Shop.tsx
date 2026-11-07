@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, type Shop, type ShopCard, type ShopHoliday } from '../api/endpoints';
 import { errorMessage } from '../api/errors';
 import { mediaUrl } from '../api/media';
@@ -9,6 +9,8 @@ function dayLabel(day: string): string {
 }
 
 export default function ShopPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rewardId = Number(searchParams.get('reward_id')) || null;
   const [shop, setShop] = useState<Shop | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,8 +34,14 @@ export default function ShopPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.shopTake(card.id);
-      setJustTaken(card.title);
+      if (rewardId) {
+        await api.useReward(rewardId, { card_id: card.id });
+        setJustTaken(`Карточка «${card.title}» добавлена в коллекцию без задания и отчёта!`);
+        setSearchParams({});
+      } else {
+        await api.shopTake(card.id);
+        setJustTaken(`Карточка «${card.title}» принята в задания — сдайте отчёт на главной!`);
+      }
       await load();
     } catch (e: any) {
       setError(errorMessage(e, 'Не удалось взять карточку'));
@@ -54,27 +62,30 @@ export default function ShopPage() {
     <div className="fm-rise">
       <div className="fm-card">
         <h2>🛒 Магазин выкупа</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
-          Пропустили карточку во время праздника? Здесь можно добрать любую несобранную —
-          задание придёт со штрафом <strong>{shop?.penalty_crosses ?? 1000} крестиков</strong>.
-          Одно выкупленное задание за раз, отказаться нельзя.
-        </p>
-        {shop?.has_active_task && (
+        {rewardId ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
+            Применяется награда «Выкуп без отшива». Выберите одну карточку — она сразу попадёт в коллекцию.
+          </p>
+        ) : (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 15 }}>
+            Пропустили карточку во время праздника? Здесь можно добрать любую несобранную —
+            задание придёт со штрафом <strong>{shop?.penalty_crosses ?? 1000} крестиков</strong>.
+            Отказаться от выкупленного задания нельзя.
+          </p>
+        )}
+        {shop && !shop.can_take_task && !rewardId && (
           <div className="fm-card" style={{ marginTop: 8, textAlign: 'center' }}>
-            У вас уже есть активное задание — сдайте его на главной, прежде чем выкупать новое.{' '}
+            У вас уже активное задание — сдайте его на главной, прежде чем выкупать новое.{' '}
             <Link to="/" style={{ color: 'var(--accent-warm)' }}>К заданию →</Link>
           </div>
         )}
       </div>
 
-      {error && (
-        <div className="fm-card" style={{ marginTop: 12, color: 'var(--danger)' }}>{error}</div>
-      )}
-
+      {error && <div className="fm-card" style={{ marginTop: 12, color: 'var(--danger)' }}>{error}</div>}
       {justTaken && (
         <div className="fm-card fm-pop" style={{ marginTop: 12, textAlign: 'center', borderColor: 'var(--success)' }}>
           <div style={{ fontSize: 28 }}>🃏</div>
-          Карточка «{justTaken}» принята в задания — сдайте отчёт на главной!
+          {justTaken}
         </div>
       )}
 
@@ -85,17 +96,10 @@ export default function ShopPage() {
             <>
               Магазин выкупа откроется после завершения праздника
               {shop.active_holiday_title ? ` «${shop.active_holiday_title}»` : ''}
-              {shop.active_holiday_ends_at
-                ? ` — ${shop.active_holiday_ends_at.slice(0, 10).split('-').reverse().join('.')}`
-                : ''}
-              . Соберите карточки во время праздника — после его конца здесь можно будет добрать пропущенные
-              (штраф {shop.penalty_crosses} крестиков).
+              {shop.active_holiday_ends_at ? ` — ${shop.active_holiday_ends_at.slice(0, 10).split('-').reverse().join('.')}` : ''}.
             </>
           ) : (
-            <>
-              Магазин выкупа открыт по выходным — суббота и воскресенье
-              (время московское). Загляните в ближайшую субботу!
-            </>
+            <>Магазин выкупа открыт по выходным — суббота и воскресенье (время московское).</>
           )}
         </div>
       ) : (shop?.holidays.length ?? 0) === 0 ? (
@@ -111,27 +115,9 @@ export default function ShopPage() {
               {holiday.cards.map((card) => (
                 <div key={card.id} className="fm-card" style={{ textAlign: 'center' }}>
                   {card.image_url ? (
-                    <img
-                      src={mediaUrl(card.image_url)}
-                      alt={card.title}
-                      style={{ width: '100%', borderRadius: 8, marginBottom: 6 }}
-                    />
+                    <img src={mediaUrl(card.image_url)} alt={card.title} style={{ width: '100%', borderRadius: 8, marginBottom: 6 }} />
                   ) : (
-                    <div
-                      style={{
-                        width: '100%',
-                        aspectRatio: '1',
-                        borderRadius: 8,
-                        marginBottom: 6,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: 'var(--surface-strong)',
-                        fontSize: 30,
-                      }}
-                    >
-                      🎴
-                    </div>
+                    <div style={{ width: '100%', aspectRatio: '1', borderRadius: 8, marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-strong)', fontSize: 30 }}>🎴</div>
                   )}
                   <div style={{ fontSize: 16 }}>{card.title}</div>
                   <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
@@ -140,10 +126,10 @@ export default function ShopPage() {
                   <button
                     className="fm-btn fm-btn-sm"
                     style={{ marginTop: 8 }}
-                    disabled={busy || !!shop?.has_active_task}
+                    disabled={busy || (!rewardId && !shop?.can_take_task)}
                     onClick={() => take(card)}
                   >
-                    Выкупить · {card.penalty_crosses} крестиков
+                    {rewardId ? 'Выкупить без отшива' : `Выкупить · ${card.penalty_crosses} крестиков`}
                   </button>
                 </div>
               ))}
