@@ -330,7 +330,11 @@ def test_next_day_shows_next_cards(admin_client, monkeypatch):
 
 
 def test_collection_totals_count_filled_cards_only(admin_client, db):
-    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload()).json()["id"]
+    payload = _multi_day_holiday_payload()
+    today = now_msk().replace(tzinfo=None)
+    payload["starts_at"] = today.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    payload["ends_at"] = today.replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+    hid = admin_client.post("/api/admin/holidays", json=payload).json()["id"]
     cat1 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Наряды", "norm_crosses": 500}).json()
     cat2 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Декор", "norm_crosses": 900}).json()
     detail = admin_client.get(f"/api/admin/holidays/{hid}").json()
@@ -349,7 +353,7 @@ def test_collection_totals_count_filled_cards_only(admin_client, db):
     titles = {c["title"] for c in data["categories"]}
     assert titles == {"Наряды", "Декор"}
     cat_cards = data["categories"][0]["cards"]
-    assert len(cat_cards) == 6
+    assert len(cat_cards) == 1
     assert any(c["card"]["title"] == "Единственная" for c in cat_cards)
     assert state["cards_total"] == 1
     complete_by_id = {c["id"]: c["complete"] for c in data["categories"]}

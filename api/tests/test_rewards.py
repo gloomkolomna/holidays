@@ -8,6 +8,9 @@ from tests.test_shop import _finished_holiday
 
 def _active_holiday_one_card(admin_client, title="Короткий"):
     payload = _multi_day_holiday_payload(title)
+    today = now_msk().replace(tzinfo=None)
+    payload["starts_at"] = today.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    payload["ends_at"] = today.replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
     hid = admin_client.post("/api/admin/holidays", json=payload).json()["id"]
     cat = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Кат", "norm_crosses": 300}).json()
     slots = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["cards"]
@@ -54,7 +57,11 @@ def test_full_category_awards_crystal_and_trophy(admin_client, db, uploads_tmp):
 
 
 def test_category_reward_per_category_independent(admin_client, db):
-    hid = admin_client.post("/api/admin/holidays", json=_multi_day_holiday_payload("Двухразделовый")).json()["id"]
+    payload = _multi_day_holiday_payload("Двухразделовый")
+    today = now_msk().replace(tzinfo=None)
+    payload["starts_at"] = today.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    payload["ends_at"] = today.replace(hour=23, minute=59, second=59, microsecond=0).isoformat()
+    hid = admin_client.post("/api/admin/holidays", json=payload).json()["id"]
     cat1 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Наряды", "norm_crosses": 500}).json()
     cat2 = admin_client.post(f"/api/admin/holidays/{hid}/categories", json={"title": "Декор", "norm_crosses": 900}).json()
     detail = admin_client.get(f"/api/admin/holidays/{hid}").json()
@@ -199,18 +206,23 @@ def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, m
     from tests.test_shop import _shop_now_at
 
     monkeypatch.setattr(shop_module, "now_msk", lambda: _shop_now_at(5))
-    hid, day_card_ids = _finished_holiday(admin_client, cards=("Тыква",))
+    hid, day_card_ids = _finished_holiday(
+        admin_client,
+        cards=("Тыква", "Кот", "Призрак", "Паук", "Свеча", "Фонарь"),
+    )
     cat_id = admin_client.get(f"/api/admin/holidays/{hid}").json()["categories"][0]["id"]
     extra = admin_client.post(
         f"/api/admin/holidays/{hid}/extra-cards",
         json={"category_id": cat_id, "title": "Магазинная"},
     ).json()
-    admin_client.post(
+    second_extra = admin_client.post(
         f"/api/admin/holidays/{hid}/extra-cards",
-        json={"category_id": cat_id, "title": "Необязательная магазинная"},
-    )
+        json={"category_id": cat_id, "title": "Вторая магазинная"},
+    ).json()
 
-    db.add(UC(user_id=123, card_id=day_card_ids[0]))
+    for card_id in day_card_ids[:5]:
+        db.add(UC(user_id=123, card_id=card_id))
+    db.add(UC(user_id=123, card_id=second_extra["id"], source="penalty"))
     db.commit()
     assert ensure_collection_reward(db, 123, cat_id) is False
 

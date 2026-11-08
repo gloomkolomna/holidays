@@ -6,15 +6,13 @@ from models import CollectionReward, HolidayCategory, User, UserCard
 
 
 def category_is_complete(category: HolidayCategory, owned: set[int]) -> bool:
-    filled = [c for c in category.cards if c.title.strip()]
-    daily = {c.id for c in filled if c.day is not None}
-    if not daily or not daily.issubset(owned):
-        return False
-    return any(c.id in owned for c in filled if c.day is None)
+    holiday_days = (category.holiday.ends_at.date() - category.holiday.starts_at.date()).days + 1
+    filled = {c.id for c in category.cards if c.title.strip()}
+    return len(filled & owned) >= holiday_days + 1
 
 
 def ensure_collection_reward(db: Session, user_id: int, category_id: int) -> bool:
-    """Начисляет кристалл и кубок за все дневные карточки и одну магазинную — один раз."""
+    """Начисляет кристалл и кубок за набор карточек в количестве дней праздника + 1 — один раз."""
     category = db.query(HolidayCategory).filter(HolidayCategory.id == category_id).first()
     if category is None:
         return False
