@@ -26,7 +26,13 @@ def test_rewards_requires_auth(client):
 
 def test_full_category_awards_crystal_and_trophy(admin_client, db, uploads_tmp):
     hid, cat_id, card_id = _active_holiday_one_card(admin_client)
+    extra = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat_id, "title": "Магазинная"},
+    ).json()
     with make_user_client(123) as player:
+        db.add(__import__("models").UserCard(user_id=123, card_id=extra["id"], source="penalty"))
+        db.commit()
         task = player.post(f"/api/game/cards/{card_id}/take").json()
         resp = player.post(
             f"/api/game/tasks/{task['id']}/report",
@@ -55,9 +61,18 @@ def test_category_reward_per_category_independent(admin_client, db):
     by_cat = {c["id"]: c["cards"] for c in detail["categories"]}
     card1 = admin_client.put(f"/api/admin/holidays/{hid}/cards/{by_cat[cat1['id']][0]['id']}", json={"title": "Первая"}).json()
     card2 = admin_client.put(f"/api/admin/holidays/{hid}/cards/{by_cat[cat2['id']][0]['id']}", json={"title": "Вторая"}).json()
+    extra1 = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat1["id"], "title": "Магазинная 1"},
+    ).json()
+    extra2 = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat2["id"], "title": "Магазинная 2"},
+    ).json()
 
     db.add(User(vk_id=555, role="player"))
     db.add(__import__("models").UserCard(user_id=555, card_id=card1["id"]))
+    db.add(__import__("models").UserCard(user_id=555, card_id=extra1["id"], source="penalty"))
     db.commit()
 
     assert ensure_collection_reward(db, 555, cat1["id"]) is True
@@ -68,6 +83,7 @@ def test_category_reward_per_category_independent(admin_client, db):
     assert db.query(CollectionReward).filter_by(user_id=555).count() == 1
 
     db.add(__import__("models").UserCard(user_id=555, card_id=card2["id"]))
+    db.add(__import__("models").UserCard(user_id=555, card_id=extra2["id"], source="penalty"))
     db.commit()
     assert ensure_collection_reward(db, 555, cat2["id"]) is True
     user = db.query(User).filter(User.vk_id == 555).first()
@@ -80,8 +96,13 @@ def test_partial_category_no_award(admin_client, db):
     detail = admin_client.get(f"/api/admin/holidays/{hid}").json()
     cat_id = detail["categories"][0]["id"]
     card_ids = [c["id"] for c in detail["categories"][0]["cards"] if c["title"]]
+    extra = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat_id, "title": "Магазинная"},
+    ).json()
     db.add(User(vk_id=777, role="player"))
     db.add(__import__("models").UserCard(user_id=777, card_id=card_ids[0]))
+    db.add(__import__("models").UserCard(user_id=777, card_id=extra["id"], source="penalty"))
     db.commit()
     assert ensure_collection_reward(db, 777, cat_id) is False
 
@@ -97,9 +118,15 @@ def _preset(admin_client, key="second_task", price=None):
 
 
 def test_buy_item_happy_path(admin_client, db, uploads_tmp):
-    _, _, card_id = _active_holiday_one_card(admin_client)
+    hid, cat_id, card_id = _active_holiday_one_card(admin_client)
+    extra = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat_id, "title": "Магазинная"},
+    ).json()
     item = _preset(admin_client)
     with make_user_client(123) as player:
+        db.add(__import__("models").UserCard(user_id=123, card_id=extra["id"], source="penalty"))
+        db.commit()
         task = player.post(f"/api/game/cards/{card_id}/take").json()
         player.post(
             f"/api/game/tasks/{task['id']}/report",
@@ -178,6 +205,10 @@ def test_extra_shop_card_counts_toward_category(admin_client, db, uploads_tmp, m
         f"/api/admin/holidays/{hid}/extra-cards",
         json={"category_id": cat_id, "title": "Магазинная"},
     ).json()
+    admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat_id, "title": "Необязательная магазинная"},
+    )
 
     db.add(UC(user_id=123, card_id=day_card_ids[0]))
     db.commit()

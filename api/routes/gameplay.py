@@ -385,6 +385,8 @@ def get_collection(
             earned_at=uc.earned_at.isoformat() if uc else None,
         )
 
+    from services.rewards import category_is_complete
+
     categories_out = []
     total = 0
     collected_count = 0
@@ -393,8 +395,7 @@ def get_collection(
         filled_cards = [c for c in cat.cards if c.title.strip()]
         total += len(filled_cards)
         collected_count += sum(1 for c in filled_cards if c.id in owned)
-        filled_ids = {c.id for c in filled_cards}
-        complete = bool(filled_ids) and filled_ids.issubset(owned.keys())
+        complete = category_is_complete(cat, set(owned))
         categories_out.append(
             CollectionCategoryOut(
                 id=cat.id,

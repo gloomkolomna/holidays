@@ -364,6 +364,17 @@ def test_collection_totals_count_filled_cards_only(admin_client, db):
     assert state2["collected_count"] == 1
     assert state2["cards_total"] == 1
     complete_by_id = {c["id"]: c["complete"] for c in after["categories"]}
+    assert complete_by_id == {cat1["id"]: False, cat2["id"]: False}
+
+    extra = admin_client.post(
+        f"/api/admin/holidays/{hid}/extra-cards",
+        json={"category_id": cat1["id"], "title": "Магазинная"},
+    ).json()
+    db.add(UserCard(user_id=123, card_id=extra["id"], source="penalty"))
+    db.commit()
+    with make_user_client(123) as player:
+        completed = player.get(f"/api/game/collection?holiday_id={hid}").json()
+    complete_by_id = {c["id"]: c["complete"] for c in completed["categories"]}
     assert complete_by_id == {cat1["id"]: True, cat2["id"]: False}
 
 
